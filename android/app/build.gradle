@@ -1,6 +1,22 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+// E8-07: envia ao Sentry o bundle e o mapa de código do build de release, para o erro
+// aparecer com a linha do código-fonte. Instalação manual (o projeto não usa `expo
+// prebuild`). O sentry-cli precisa de SENTRY_AUTH_TOKEN, SENTRY_ORG e SENTRY_PROJECT no
+// ambiente (secrets do CI): sem os três, o envio nem é configurado e o build de release sai
+// igual ao de antes, na máquina de quem não tem as credenciais e no CI sem os secrets.
+// Builds debug não enviam.
+def envioSentryConfigurado = ["SENTRY_AUTH_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"].every { System.getenv(it) }
+if (envioSentryConfigurado) {
+    def pacoteSentry = ["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute(null, rootDir).text.trim()
+    def sentryGradle = pacoteSentry ? new File(new File(pacoteSentry).getParentFile(), "sentry.gradle") : null
+    if (sentryGradle?.exists()) {
+        apply from: sentryGradle
+    } else {
+        logger.warn("E8-07: sentry.gradle não encontrado (node ou npm install?); build segue sem enviar o mapa ao Sentry.")
+    }
+}
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -90,7 +106,7 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
  * `expo run:android`) vale `prod`: pacote e nome iguais aos de sempre, e a CLI do Expo
  * continua achando o app pelo `applicationId` que conhece.
  * Custo aceito (code-review de 22/09/2026): um build local de `release` sai com o pacote
- * de produção assinado pela chave `debug`, e não instalaria por cima de um "Radar Saúde"
+ * de produção assinado pela chave `debug`, e não instalaria por cima de uma "Pulseira Verde"
  * de produção. Produção ainda não existe; quando existir, rever este padrão (a CLI aceita
  * `expo run:android --app-id <pacote>` para abrir um pacote com sufixo).
  *
@@ -98,9 +114,9 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
  * `app_name`, e um `resValue` com o mesmo nome colidiria na fusão de recursos.
  */
 def AMBIENTES_APK = [
-    dev : [sufixo: '.dev', nome: 'Radar Saúde DEV'],
-    hom : [sufixo: '.hom', nome: 'Radar Saúde HML'],
-    prod: [sufixo: '',     nome: 'Radar Saúde'],
+    dev : [sufixo: '.dev', nome: 'Pulseira Verde DEV'],
+    hom : [sufixo: '.hom', nome: 'Pulseira Verde HML'],
+    prod: [sufixo: '',     nome: 'Pulseira Verde'],
 ]
 def ambienteApk = (findProperty('ambiente') ?: 'prod').toString()
 if (!AMBIENTES_APK.containsKey(ambienteApk)) {
