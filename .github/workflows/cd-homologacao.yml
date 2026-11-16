@@ -8,7 +8,7 @@
 #     -> release  confere a URL do APK, cria tag + GitHub Release (pre-release) com o APK
 #
 # Desde 29/10/2026 o app tem repositorio proprio: o backend de homologacao sai do
-# radar-saude-backend, com a rc dele, e este workflow so gera o APK. Quando uma mudanca
+# pulseira-verde-backend, com a rc dele, e este workflow so gera o APK. Quando uma mudanca
 # do app depende de uma mudanca da API, promover o backend para a master ANTES do app:
 # o job `release` so confere que a URL de homologacao responde, nao a versao dela.
 #
@@ -147,7 +147,7 @@ jobs:
   # download-artifact sem nome baixou TODOS os artefatos da execucao -- inclusive os
   # registros `.dockerbuild` do build do backend -- e falhou neles. Por isso este job nao
   # le output de `apk` nem de `versao`: acha o APK pelo commit e tira a versao do nome do
-  # arquivo (`radar-saude-hom-X.Y.Z-rc.N.apk`), que o proprio APK carrega.
+  # arquivo (`pulseira-verde-hom-X.Y.Z-rc.N.apk`), que o proprio APK carrega.
   release:
     name: Tag e GitHub Release
     needs: [versao, apk]
@@ -158,7 +158,7 @@ jobs:
       - name: Baixar o APK
         uses: actions/download-artifact@v4
         with:
-          pattern: apk-radar-saude-hom-*-${{ github.sha }}
+          pattern: apk-pulseira-verde-hom-*-${{ github.sha }}
           merge-multiple: true
           path: apk
 
@@ -166,14 +166,14 @@ jobs:
         id: rc
         run: |
           set -euo pipefail
-          mapfile -t APKS < <(find apk -maxdepth 1 -name 'radar-saude-hom-*.apk')
+          mapfile -t APKS < <(find apk -maxdepth 1 -name 'pulseira-verde-hom-*.apk')
           if [ "${#APKS[@]}" -ne 1 ]; then
             echo "ERRO: esperado 1 APK de homologacao deste commit, encontrados ${#APKS[@]}: ${APKS[*]:-nenhum}"
             exit 1
           fi
           ARQUIVO=$(basename "${APKS[0]}")
-          if ! [[ "$ARQUIVO" =~ ^radar-saude-hom-([0-9]+)\.([0-9]+)\.([0-9]+)-rc\.([0-9]+)\.apk$ ]]; then
-            echo "ERRO: nome inesperado '$ARQUIVO' (esperado radar-saude-hom-X.Y.Z-rc.N.apk)."
+          if ! [[ "$ARQUIVO" =~ ^pulseira-verde-hom-([0-9]+)\.([0-9]+)\.([0-9]+)-rc\.([0-9]+)\.apk$ ]]; then
+            echo "ERRO: nome inesperado '$ARQUIVO' (esperado pulseira-verde-hom-X.Y.Z-rc.N.apk)."
             exit 1
           fi
           X=${BASH_REMATCH[1]}; Y=${BASH_REMATCH[2]}; Z=${BASH_REMATCH[3]}; N=${BASH_REMATCH[4]}

@@ -387,7 +387,7 @@ jobs:
           fi
 
           # Nome que o testador ve ao baixar (e o nome do anexo na Release):
-          # radar-saude-hom-1.0.0-rc.1.apk. Lista de PERMITIDOS em vez de trocar so a
+          # pulseira-verde-hom-1.0.0-rc.1.apk. Lista de PERMITIDOS em vez de trocar so a
           # barra: o upload-artifact recusa `/ \ : < > | * ? "`, e nome de branch/versao
           # e dado externo (medido em 05/09/2026, run 33932396994).
           SUFIXO_VARIANTE=""; [ "$VARIANTE" = "debug" ] && SUFIXO_VARIANTE="-debug"
@@ -395,7 +395,7 @@ jobs:
           # que mostra ao testador que aquilo nao e o que esta na `develop`.
           SUFIXO_BRANCH=""
           case "$REF_NAME" in develop|master|release/*) ;; *) SUFIXO_BRANCH="-${REF_NAME}" ;; esac
-          BASE=$(printf '%s' "radar-saude-${AMBIENTE}-${VERSION_NAME}${SUFIXO_BRANCH}${SUFIXO_VARIANTE}${SUFIXO}" | tr -c 'A-Za-z0-9._-' '-')
+          BASE=$(printf '%s' "pulseira-verde-${AMBIENTE}-${VERSION_NAME}${SUFIXO_BRANCH}${SUFIXO_VARIANTE}${SUFIXO}" | tr -c 'A-Za-z0-9._-' '-')
           ARQUIVO="${BASE}.${EXT}"
           mkdir -p "$RUNNER_TEMP/saida"
           cp "$CAMINHO" "$RUNNER_TEMP/saida/$ARQUIVO"

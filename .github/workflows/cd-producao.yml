@@ -1,7 +1,7 @@
 # Producao: o push de uma branch `release/X.Y.Z` gera o AAB da Play Store.
 #
 # 14/10/2026 (analise de prontidao para a Play Store, bloqueador B2): a `release/**` so
-# publicava o backend (hoje no radar-saude-backend, com a release dele). Nao
+# publicava o backend (hoje no pulseira-verde-backend, com a release dele). Nao
 # existia build do app de producao, e o cd-mobile-apk.yml so gerava APK, que a Play Store
 # nao aceita para app novo.
 #
@@ -94,7 +94,7 @@ jobs:
       - name: Baixar o AAB
         uses: actions/download-artifact@v4
         with:
-          pattern: aab-radar-saude-prod-*-${{ github.sha }}
+          pattern: aab-pulseira-verde-prod-*-${{ github.sha }}
           merge-multiple: true
           path: aab
 
@@ -106,7 +106,7 @@ jobs:
           VERSION_CODE: ${{ needs.versao.outputs.version_code }}
         run: |
           set -euo pipefail
-          mapfile -t AABS < <(find aab -maxdepth 1 -name 'radar-saude-prod-*.aab')
+          mapfile -t AABS < <(find aab -maxdepth 1 -name 'pulseira-verde-prod-*.aab')
           if [ "${#AABS[@]}" -ne 1 ]; then
             echo "ERRO: esperado 1 AAB de producao deste commit, encontrados ${#AABS[@]}: ${AABS[*]:-nenhum}"
             exit 1
