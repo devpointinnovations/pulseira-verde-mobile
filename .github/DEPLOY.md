@@ -7,10 +7,10 @@ Este guia configura o pipeline de CI/CD usando **GitHub Actions** + serviços gr
 > `keep-alive-backend.yml` e os blueprints `render.yaml` saíram do repositório. A
 > referência do backend é [`deploy/google/README.md`](../deploy/google/README.md).
 
-> **29/10/2026:** o monorepo foi dividido em `radar-saude-mobile` (este),
-> `radar-saude-backend`, `painel-admin-frontend` e `radar-saude-docs`, na conta
+> **29/10/2026:** o monorepo foi dividido em `pulseira-verde-mobile` (este),
+> `pulseira-verde-backend`, `pulseira-verde-admin` e `pulseira-verde-docs`, na conta
 > devpointinnovations. O deploy do backend (Cloud Run, `deploy/google/`) foi para o
-> radar-saude-backend, e a homologação passou a ser uma por repositório: aqui o
+> pulseira-verde-backend, e a homologação passou a ser uma por repositório: aqui o
 > `cd-homologacao.yml` gera o APK HML e a tag `vX.Y.Z-rc.N` do app. As seções abaixo que
 > citam `backend/`, `frontend/` e `deploy/google/` descrevem o fluxo até essa data.
 
