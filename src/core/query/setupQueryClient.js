@@ -3,6 +3,7 @@ import { focusManager, onlineManager } from "@tanstack/react-query";
 import * as Network from "expo-network";
 import { sessaoStore } from "../stores/sessaoStore";
 import { queryClient, removerDadosPessoais } from "./queryClient";
+import { persistirCache, restaurarCache } from "./cachePersistido";
 
 function estaOnline(estado) {
   return Boolean(estado?.isConnected) && estado?.isInternetReachable !== false;
@@ -31,6 +32,10 @@ export function configurarQueryNoApp(cliente = queryClient) {
     });
   }
 
+  // Offline total: as telas abrem com o que foi buscado da última vez (cachePersistido).
+  void restaurarCache(cliente);
+  const pararPersistencia = persistirCache(cliente);
+
   const inscricaoAppState = AppState.addEventListener("change", (status) => {
     if (Platform.OS !== "web") {
       focusManager.setFocused(status === "active");
@@ -46,5 +51,6 @@ export function configurarQueryNoApp(cliente = queryClient) {
   return () => {
     inscricaoAppState?.remove?.();
     cancelarSessao();
+    pararPersistencia();
   };
 }

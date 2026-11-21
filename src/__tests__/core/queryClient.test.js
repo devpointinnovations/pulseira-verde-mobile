@@ -24,6 +24,13 @@ describe("queryClient", () => {
     expect(padroes.mutations.retry).toBe(false);
   });
 
+  test("offline total: a consulta roda sem rede e a escrita chega ao serviço, que usa a fila offline", () => {
+    const padroes = criarQueryClient().getDefaultOptions();
+
+    expect(padroes.queries.networkMode).toBe("offlineFirst");
+    expect(padroes.mutations.networkMode).toBe("always");
+  });
+
   test("a instância do app usa os mesmos padrões", () => {
     expect(queryClient.getDefaultOptions().queries.retry).toBe(false);
   });

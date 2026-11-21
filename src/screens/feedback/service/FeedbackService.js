@@ -1,4 +1,5 @@
 import { apiRequest as request } from "../../../core/api/apiClient";
+import { enviarOuGuardar } from "../../../core/api/envioComFila";
 import DispositivoId from "../../../services/DispositivoId";
 
 const BASE_PATH = "/api/v1/feedbacks";
@@ -24,7 +25,8 @@ class FeedbackService {
    */
   static async enviar(payload) {
     const corpo = { ...payload, dispositivoId: await DispositivoId.obterSeDisponivel() };
-    return request(BASE_PATH, { method: "POST", body: corpo, idempotente: true });
+    // Repetível: o servidor aceita um feedback por visita e responde 409 ao segundo.
+    return enviarOuGuardar(BASE_PATH, { method: "POST", body: corpo, repetivel: true }, `feedback:${payload?.visitaId}`);
   }
 
   /** Feedback da visita (dono) — usado para pré-preencher a edição (até 15 dias, RN-09). */
@@ -34,7 +36,7 @@ class FeedbackService {
 
   /** Edita feedback até 15 dias após a criação (dono, RN-09). Mesma dedupe do `enviar` acima. */
   static atualizar(id, payload) {
-    return request(`${BASE_PATH}/${id}`, { method: "PUT", body: payload, idempotente: true });
+    return enviarOuGuardar(`${BASE_PATH}/${id}`, { method: "PUT", body: payload, repetivel: true }, `feedback-edicao:${id}`);
   }
 
   /**

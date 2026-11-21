@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
-import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
+import {BottomTabBar, createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {NavigationContainer} from "@react-navigation/native";
 import {SafeAreaProvider, useSafeAreaInsets} from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as Network from "expo-network";
-import {AppState} from "react-native";
+import {AppState, View} from "react-native";
+import CSAvisoConexao from "./src/components/CSAvisoConexao";
 import {Building2, Home as HomeIcon, Map as MapIcon, User as UserIcon} from "lucide-react-native";
 import HomeScreen from "./src/screens/home/view/HomeScreen.js";
 import LoginScreen from "./src/screens/auth/view/LoginScreen.js";
@@ -103,6 +104,16 @@ function FeedbackStack() {
 // Navegação por Bottom Tabs (E6-01): 4 abas de 1 polegar (Início, Hospitais, Mapa,
 // Perfil) substituindo o antigo Drawer. O mapa entrou como aba própria (navegação
 // revisada), em vez de botão dentro da Home. Transições suaves via burst.
+// Aviso de "sem internet" e da fila offline logo acima da tab bar, em todas as abas.
+function BarraDeAbas(props) {
+    return (
+        <View>
+            <CSAvisoConexao />
+            <BottomTabBar {...props} />
+        </View>
+    );
+}
+
 function Tabs() {
     // Barra de sistema (Android, botões na tela — não gestos): o `BottomTabBar` da lib
     // soma `insets.bottom` sozinho à altura E ao paddingBottom padrão, mas SÓ quando a
@@ -115,6 +126,7 @@ function Tabs() {
 
     return (
         <Tab.Navigator
+            tabBar={BarraDeAbas}
             screenOptions={{
                 headerShown: false,
                 tabBarActiveTintColor: colors.primary,

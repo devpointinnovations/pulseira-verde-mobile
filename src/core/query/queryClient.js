@@ -4,8 +4,12 @@ import { DOMINIOS_PESSOAIS, queryKeys } from "./queryKeys";
 /** Dado considerado fresco por 2 minutos: trocar de aba não refaz a requisição. */
 export const STALE_TIME_PADRAO_MS = 2 * 60 * 1000;
 
-/** Query sem nenhuma tela usando fica em memória por 15 minutos. */
-export const GC_TIME_PADRAO_MS = 15 * 60 * 1000;
+/**
+ * Query sem nenhuma tela usando fica em memória por 24 horas. Era 15 minutos; com o cache
+ * gravado no aparelho (offline total), o que sai da memória sai também da cópia gravada, e o
+ * ranking ou o histórico não abririam sem rede depois de 15 minutos fora da tela.
+ */
+export const GC_TIME_PADRAO_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Cria o `QueryClient` com os padrões do app (SDD de TanStack Query e Zustand, §6.2).
@@ -25,9 +29,16 @@ export function criarQueryClient() {
         retry: false,
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
+        // Offline total: sem rede a consulta ainda roda uma vez. Assim a cópia local (catálogo)
+        // carrega, e a consulta que depende do servidor mostra o erro de conexão em vez de
+        // ficar carregando para sempre; o dado guardado no aparelho continua na tela.
+        networkMode: "offlineFirst",
       },
       mutations: {
         retry: false,
+        // Os serviços guardam a escrita na fila offline quando não há rede. Com o padrão
+        // ("online") a mutação ficava pausada em memória e o serviço nunca era chamado.
+        networkMode: "always",
       },
     },
   });
