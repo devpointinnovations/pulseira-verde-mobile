@@ -1,13 +1,14 @@
 /**
  * Smoke test de navegação (E6-01): garante que o App monta e que a barra de
- * Bottom Tabs exibe as 3 abas (Início, Hospitais, Perfil) que substituíram o Drawer.
+ * Bottom Tabs exibe as 4 abas do novo layout (Início, Ranking, Visitas, Perfil).
  *
  * Renderiza o `App` real com mocks das libs nativas (mapa, notifications, GPS),
  * conforme já feitos em `jest.setup.js`, e valida a árvore de acessibilidade da tab bar.
  */
 import React from "react";
 import { StyleSheet } from "react-native";
-import { render, screen, act } from "@testing-library/react-native";
+import { colors } from "../../theme";
+import { render, screen, act, fireEvent } from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import { __setMockInsets } from "react-native-safe-area-context";
 import App from "../../../App";
@@ -27,6 +28,12 @@ jest.mock("../../utils/mapkit", () => {
     LineLayer: stub,
     FillLayer: stub,
   };
+});
+
+// A tela do mapa liga o GPS e segura o processo do Jest aberto; aqui só importa a navegação.
+jest.mock("../../screens/geolocalizacao/view/GeoLocalizacaoScreen", () => {
+  const { Text } = require("react-native");
+  return { __esModule: true, default: () => <Text>Mapa de Geolocalização</Text> };
 });
 
 // expo-task-manager: o módulo nativo não roda em Jest.
@@ -114,27 +121,46 @@ beforeEach(() => {
 });
 
 describe("App — Bottom Tabs (E6-01)", () => {
-  it("monta o app e exibe as 4 abas (Início, Hospitais, Mapa, Perfil)", () => {
+  it("monta o app e exibe as 4 abas do novo layout (Início, Ranking, Visitas, Perfil)", () => {
     render(<App />);
 
     expect(screen.getByText("Início")).toBeOnTheScreen();
-    expect(screen.getByText("Hospitais")).toBeOnTheScreen();
-    expect(screen.getByText("Mapa")).toBeOnTheScreen();
+    expect(screen.getByText("Ranking")).toBeOnTheScreen();
+    expect(screen.getByText("Visitas")).toBeOnTheScreen();
     expect(screen.getByText("Perfil")).toBeOnTheScreen();
+    expect(screen.queryByText("Mapa")).toBeNull();
   });
 
-  it("abre a aba de hospitais por padrão de acessibilidade", () => {
+  it("cada aba tem um rótulo de acessibilidade que diz o que ela abre", () => {
     render(<App />);
 
-    const abaHospitais = screen.getByLabelText("Hospitais — lista com indicadores");
-    const abaPerfil = screen.getByLabelText("Perfil — conta e privacidade");
-    const abaInicio = screen.getByLabelText("Início — apresentação do app");
-    const abaMapa = screen.getByLabelText("Mapa — hospitais e geolocalização");
+    expect(screen.getByLabelText("Início — hospitais perto de você")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Ranking — melhores hospitais")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Visitas — histórico e avaliações pendentes")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Perfil — conta e privacidade")).toBeOnTheScreen();
+  });
 
-    expect(abaHospitais).toBeOnTheScreen();
-    expect(abaPerfil).toBeOnTheScreen();
-    expect(abaInicio).toBeOnTheScreen();
-    expect(abaMapa).toBeOnTheScreen();
+  it("Início abre a lista de hospitais e o ícone ativo fica na pílula verde", () => {
+    render(<App />);
+
+    expect(screen.getByText("Hospitais")).toBeOnTheScreen();
+    // A tab bar desenha o ícone ativo e o inativo de cada aba e alterna pela opacidade.
+    const ativas = screen.getAllByTestId("aba-ativa");
+    expect(ativas).toHaveLength(4);
+    ativas.forEach((pilula) =>
+      expect(StyleSheet.flatten(pilula.props.style).backgroundColor).toBe(colors.primaryContainer)
+    );
+  });
+
+  it("tocar de novo na aba Início depois de abrir o mapa volta para a lista", async () => {
+    render(<App />);
+
+    fireEvent.press(screen.getByLabelText("Ver hospitais no mapa"));
+    expect(await screen.findByText("Mapa de Geolocalização")).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByLabelText("Ranking — melhores hospitais"));
+    fireEvent.press(screen.getByLabelText("Início — hospitais perto de você"));
+    expect(await screen.findByText("Hospitais")).toBeOnTheScreen();
   });
 
   it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", () => {
@@ -154,7 +180,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
     const barra = tablist.parent;
     const estilo = StyleSheet.flatten(barra.props.style);
 
-    expect(estilo.height).toBe(64 + 48);
+    expect(estilo.height).toBe(72 + 48);
     expect(estilo.paddingBottom).toBe(8 + 48);
   });
 });
