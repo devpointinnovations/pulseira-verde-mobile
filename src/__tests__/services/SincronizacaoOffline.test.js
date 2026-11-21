@@ -4,6 +4,12 @@ import { ErroDeTimeout, ErroSemInternet, ErroServidorIndisponivel } from "../../
 import { enfileirar, itensDaFila } from "../../config/filaOffline";
 import VisitaService from "../../screens/visitas/service/VisitaService";
 import { MAX_TENTATIVAS, definirObservador, sincronizar } from "../../services/SincronizacaoOffline";
+import { reenviarRequisicao } from "../../core/api/envioComFila";
+
+jest.mock("../../core/api/envioComFila", () => ({
+  TIPO_REQUISICAO: "requisicao",
+  reenviarRequisicao: jest.fn(),
+}));
 
 jest.mock("../../screens/visitas/service/VisitaService", () => ({
   __esModule: true,
@@ -33,6 +39,22 @@ describe("OPS-05 — sincronização da fila offline", () => {
       expect.objectContaining({ chave: "checkin:h1", tipo: "checkin" })
     );
     expect(resultado).toMatchObject({ enviados: 1, descartados: 0, pendentes: 0 });
+  });
+
+  it("avaliação, sugestão e consentimento guardados saem pela requisição genérica, na ordem da fila", async () => {
+    VisitaService.enviarEventoOffline.mockResolvedValue({ id: "v1" });
+    reenviarRequisicao.mockResolvedValue({ id: "f1" });
+    await enfileirar({ chave: "checkout:v1", tipo: "checkout", corpo: { visitaId: "v1" } });
+    await enfileirar({ chave: "feedback:v1", tipo: "requisicao", corpo: { path: "/api/v1/feedbacks", method: "POST" } });
+
+    const resultado = await sincronizar();
+
+    expect(VisitaService.enviarEventoOffline).toHaveBeenCalledTimes(1);
+    expect(reenviarRequisicao).toHaveBeenCalledWith(expect.objectContaining({ chave: "feedback:v1" }));
+    expect(VisitaService.enviarEventoOffline.mock.invocationCallOrder[0]).toBeLessThan(
+      reenviarRequisicao.mock.invocationCallOrder[0]
+    );
+    expect(resultado).toMatchObject({ enviados: 2, pendentes: 0 });
   });
 
   it("mantém o evento na fila enquanto o aparelho segue sem internet", async () => {

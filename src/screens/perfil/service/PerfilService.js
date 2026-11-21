@@ -6,7 +6,8 @@ import { buildApiUrl } from "../../../config/api";
 
 import { fetchComTimeout } from "../../../config/http";
 import { geracaoDaSessao } from "../../../config/sessao";
-import { apiRequest as request, renovarSessaoAposNaoAutorizado } from "../../../core/api/apiClient";
+import { renovarSessaoAposNaoAutorizado } from "../../../core/api/apiClient";
+import { enviarOuGuardar } from "../../../core/api/envioComFila";
 import TokenStorage from "../../../services/TokenStorage";
 import LoginService from "../../auth/service/LoginService";
 import { VERSAO_TERMOS } from "../../../config/linksLegais";
@@ -179,7 +180,21 @@ class PerfilService {
       return null;
     }
 
-    return request(CONSENTIMENTOS_PATH, { method: "PUT", body: corpo });
+    // Sem internet a decisão fica guardada e sai quando a rede voltar: as telas só repetem o
+    // envio quando a permissão muda, então um envio perdido não voltaria a ser tentado.
+    const finalidadesDoCorpo = Object.keys(corpo).filter((chave) => chave !== "versaoTermos").join(",");
+    try {
+      return await enviarOuGuardar(
+        CONSENTIMENTOS_PATH,
+        { method: "PUT", body: corpo, repetivel: true },
+        `consentimento:${finalidadesDoCorpo}`
+      );
+    } catch (erro) {
+      if (erro?.enfileirado) {
+        return null;
+      }
+      throw erro;
+    }
   }
 
   /**

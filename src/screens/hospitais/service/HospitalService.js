@@ -1,4 +1,5 @@
 import { apiRequest as request, buildQuery } from "../../../core/api/apiClient";
+import { enviarOuGuardar } from "../../../core/api/envioComFila";
 
 const BASE_PATH = "/api/v1/hospitais";
 
@@ -79,7 +80,7 @@ class HospitalService {
 
   /** Sugestão pública de hospital ainda não cadastrado (E1-05, P2). */
   static sugerir(payload) {
-    return request(`${BASE_PATH}/sugestoes`, { method: "POST", body: payload });
+    return enviarOuGuardar(`${BASE_PATH}/sugestoes`, { method: "POST", body: payload }, `sugestao:${Date.now()}`);
   }
 
   // Moderação de sugestões (listar/aprovar/rejeitar, E1-06, papel ADMIN) foi removida
