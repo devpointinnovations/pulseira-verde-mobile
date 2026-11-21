@@ -143,7 +143,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
   it("Início abre a lista de hospitais e o ícone ativo fica na pílula verde", () => {
     render(<App />);
 
-    expect(screen.getByText("Hospitais")).toBeOnTheScreen();
+    expect(screen.getByText("Perto de você")).toBeOnTheScreen();
     // A tab bar desenha o ícone ativo e o inativo de cada aba e alterna pela opacidade.
     const ativas = screen.getAllByTestId("aba-ativa");
     expect(ativas).toHaveLength(4);
@@ -160,7 +160,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
 
     fireEvent.press(screen.getByLabelText("Ranking — melhores hospitais"));
     fireEvent.press(screen.getByLabelText("Início — hospitais perto de você"));
-    expect(await screen.findByText("Hospitais")).toBeOnTheScreen();
+    expect(await screen.findByText("Perto de você")).toBeOnTheScreen();
   });
 
   it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", () => {
