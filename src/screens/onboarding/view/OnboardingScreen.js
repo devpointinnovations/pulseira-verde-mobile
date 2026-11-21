@@ -73,7 +73,13 @@ export default function OnboardingScreen({ navigation }) {
     navigation.reset({ index: 0, routes: [{ name: "Tabs" }] });
   };
 
-  const avancar = () => (ultima ? concluir() : setIndice(indice + 1));
+  const avancar = () => {
+    if (ultima) {
+      void concluir();
+    } else {
+      setIndice(indice + 1);
+    }
+  };
 
   const confirmar = async () => {
     setProcessando(true);
@@ -84,7 +90,7 @@ export default function OnboardingScreen({ navigation }) {
     } finally {
       setProcessando(false);
     }
-    await avancar();
+    avancar();
   };
 
   const { Icone } = etapa;
@@ -92,7 +98,7 @@ export default function OnboardingScreen({ navigation }) {
     <SafeAreaView style={styles.tela}>
       <Pressable
         style={styles.pular}
-        onPress={concluir}
+        onPress={() => void concluir()}
         accessibilityRole="button"
         accessibilityLabel="Pular apresentação"
         hitSlop={12}
@@ -136,7 +142,7 @@ export default function OnboardingScreen({ navigation }) {
             <View key={item.titulo} style={[styles.ponto, i === indice && styles.pontoAtivo]} />
           ))}
         </View>
-        <CSButton label={etapa.principal} onPress={etapa.acao ? confirmar : avancar} loading={processando} />
+        <CSButton label={etapa.principal} onPress={etapa.acao ? () => void confirmar() : avancar} loading={processando} />
         {etapa.secundaria ? (
           <CSButton label={etapa.secundaria} variant="tertiary" onPress={avancar} disabled={processando} />
         ) : null}
