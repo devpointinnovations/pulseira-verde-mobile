@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { MapPinOff, Search, Trophy } from "lucide-react-native";
+import { Map as MapIcon, MapPinOff, Search } from "lucide-react-native";
 import {
   CSHeader,
   CSHospitalCard,
@@ -256,9 +256,9 @@ export default function HospitaisScreen({ navigation }) {
         title="Hospitais"
         rightAction={
           <CSIconButton
-            icon={Trophy}
-            onPress={() => navigation.navigate("Ranking")}
-            accessibilityLabel="Abrir ranking de hospitais"
+            icon={MapIcon}
+            onPress={() => navigation.navigate("MapaTela")}
+            accessibilityLabel="Ver hospitais no mapa"
           />
         }
       />
