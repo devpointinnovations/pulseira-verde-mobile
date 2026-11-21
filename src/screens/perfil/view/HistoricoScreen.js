@@ -10,6 +10,7 @@ import { CSLoadingList } from "../../../components/CSLoading";
 import VisitaService from "../../visitas/service/VisitaService";
 import FeedbackService from "../../feedback/service/FeedbackService";
 import PerfilService from "../service/PerfilService";
+import FeedbacksPendentesCard from "../../feedback/view/FeedbacksPendentesCard";
 import { useSessao } from "../../../core/stores/sessaoStore";
 import { queryKeys } from "../../../core/query/queryKeys";
 import { useRecarregarNoFoco } from "../../../core/query/useRecarregarNoFoco";
@@ -96,7 +97,7 @@ export default function HistoricoScreen({ navigation }) {
     void refetch();
   };
 
-  const irParaLogin = () => navigation?.navigate?.("Login");
+  const irParaLogin = () => navigation?.navigate?.("Perfil", { screen: "Login" });
 
   /**
    * E5-03: baixa o relatório de dados pessoais em PDF. Quando o dispositivo não
@@ -232,10 +233,25 @@ export default function HistoricoScreen({ navigation }) {
     );
   };
 
+  const cabecalho = (
+    <CSHeader
+      title="Suas visitas"
+      onBack={(navigation?.getState?.()?.index ?? 0) > 0 ? () => navigation.goBack() : undefined}
+    />
+  );
+  // Avaliações que ainda cabem na janela de 24h (RN-09), com ou sem conta: a visita
+  // anônima também gera avaliação pendente. É o "Falta avaliar" do novo layout.
+  const pendentes = (
+    <View style={styles.pendentes}>
+      <FeedbacksPendentesCard />
+    </View>
+  );
+
   if (semSessao) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <CSHeader title="Histórico" onBack={() => navigation?.goBack?.()} />
+        {cabecalho}
+        {pendentes}
         <View style={styles.semAcessoContainer}>
           <CSEmptyState
             icon={History}
@@ -251,7 +267,9 @@ export default function HistoricoScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader title="Histórico" onBack={() => navigation?.goBack?.()} />
+      {cabecalho}
+
+      {pendentes}
 
       <View style={styles.segmentContainer}>
         {[
@@ -321,6 +339,7 @@ export default function HistoricoScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  pendentes: { paddingHorizontal: spacing.s4 },
   safe: { flex: 1, backgroundColor: colors.surface },
   semAcessoContainer: { flex: 1, justifyContent: "center" },
 
