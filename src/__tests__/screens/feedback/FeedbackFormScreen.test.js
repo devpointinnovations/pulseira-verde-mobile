@@ -28,6 +28,18 @@ describe("FeedbackFormScreen (Épico 03)", () => {
     concluirFeedback.mockResolvedValue();
   });
 
+  test("o X fecha a avaliação e a última etapa não oferece 'Pular'", () => {
+    const { UNSAFE_root } = renderizar();
+    fireEvent.press(screen.getByLabelText("Fechar"));
+    expect(UNSAFE_root.findByType(FeedbackFormScreen).props.navigation.goBack).toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText("Pular"));
+    fireEvent.press(screen.getByText("Pular"));
+    expect(screen.getByText("Avaliação geral")).toBeTruthy();
+    expect(screen.queryByText("Pular")).toBeNull();
+    expect(screen.getByText("Anônimo. Você pode mudar a resposta por 15 dias.")).toBeTruthy();
+  });
+
   test("começa na tela 1 (triagem) e é pulável (RN-11)", () => {
     renderizar();
     expect(screen.getByText("Você passou pela triagem?")).toBeTruthy();

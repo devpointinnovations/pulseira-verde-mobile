@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -26,9 +25,8 @@ import {
   useHospital,
   useListaDeHospitais,
 } from "../hooks/useHospitais";
-import { useCheckinManual } from "../../visitas/hooks/useMutacoesVisita";
+import { useCheckinNoHospital } from "../../visitas/hooks/useCheckinNoHospital";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
-import { avisarSemConexao } from "../../../utils/alertas";
 import { duracaoMinutosDesde } from "../../../utils/format";
 
 const TIPO_FILTROS = [
@@ -92,8 +90,6 @@ export default function HospitaisScreen({ navigation }) {
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [tipo, setTipo] = useState("");
 
-  const [checkinEnviandoId, setCheckinEnviandoId] = useState(null);
-
   useEffect(() => {
     const espera = setTimeout(() => setBuscaAplicada(busca), 400);
     return () => clearTimeout(espera);
@@ -125,7 +121,6 @@ export default function HospitaisScreen({ navigation }) {
   // ao voltar do detalhe) para refletir o botão de check-in de cada hospital (modo
   // anônimo via dispositivoId, §3.3). Sem conexão não é "sem visita ativa".
   const { visita: visitaAtiva, definirLocal: definirVisitaLocal } = useVisitaAtivaDaTela();
-  const { mutateAsync: registrarCheckin } = useCheckinManual();
 
   // Pedido do PO (10/09/2026): o hospital do check-in ativo aparece no topo, sem
   // precisar procurá-lo na lista.
@@ -143,16 +138,6 @@ export default function HospitaisScreen({ navigation }) {
     return [hospitalCheckinAtivo, ...semODuplicado];
   }, [dados, hospitalCheckinAtivo]);
 
-  // ARQ-05 / code-review de 03/09/2026: a expressão de função nomeada `checkin` abaixo
-  // congela o closure. Se a visita ativa chegar (buscarAtiva resolvendo) DEPOIS que o
-  // alerta de conflito 409 apareceu, o toque no candidato reentraria com
-  // `visitaAtiva === null` e furaria o guard de "check-in ativo", abrindo uma segunda
-  // visita. O ref carrega o valor corrente para dentro da recursão.
-  const visitaAtivaRef = useRef(visitaAtiva);
-  useEffect(() => {
-    visitaAtivaRef.current = visitaAtiva;
-  }, [visitaAtiva]);
-
   const abrirDetalhe = useCallback(
     (hospital) => {
       navigation.navigate("HospitalDetalhe", { id: hospital.id });
@@ -160,75 +145,13 @@ export default function HospitaisScreen({ navigation }) {
     [navigation]
   );
 
-  // ARQ-05: `fazerCheckin` e `tratarConflitoGeofence` se chamavam mutuamente, o que
-  // impediria memoizar as duas (dependência circular entre dois useCallback). A
-  // expressão de função nomeada `checkin` resolve a recursão sem ref auxiliar nem
-  // efeito, e o tratamento do 409 passa a viver no único lugar que o dispara.
-  const fazerCheckin = useCallback(
-    async function checkin(hospital) {
-      const ativa = visitaAtivaRef.current;
-      if (ativa) {
-        if (ativa.hospitalId === hospital.id) {
-          navigation.navigate("HospitalDetalhe", { id: hospital.id });
-        } else {
-          Alert.alert(
-            "Check-in ativo",
-            "Você já tem uma visita em andamento em outro hospital. Finalize-a antes de começar outra."
-          );
-        }
-        return;
-      }
-
-      setCheckinEnviandoId(hospital.id);
-      try {
-        // A mutação grava a visita confirmada na query compartilhada: o botão muda
-        // aqui e o observador global (heartbeat e geofencing) segue a visita nova sem
-        // depender de a aba Início ganhar foco (Auditoria Técnica v4.0, §4.2.2).
-        await registrarCheckin({ hospitalId: hospital.id });
-        // Redireciona ao detalhe do hospital, que exibe o temporizador + checkout
-        // (específico do check-in manual).
-        setCheckinEnviandoId(null);
-        navigation.navigate("HospitalDetalhe", { id: hospital.id });
-      } catch (e) {
-        setCheckinEnviandoId(null);
-        if (e.status === 409 && e.data?.candidatos?.length) {
-          const conflito = e.data;
-          Alert.alert(
-            "Qual hospital é este?",
-            conflito.message || "Encontramos mais de um hospital nesta localização.",
-            [
-              ...conflito.candidatos.map((candidato) => ({
-                text: candidato.nome,
-                onPress: () => checkin({ id: candidato.hospitalId, nome: candidato.nome }),
-              })),
-              { text: "Cancelar", style: "cancel" },
-            ]
-          );
-          return;
-        }
-        if (e.enfileirado) {
-          // Sem conexão, o check-in foi guardado para sincronizar depois (OPS-05) —
-          // não é uma falha, então o alerta não pode soar como uma. Fica na lista em
-          // vez de navegar para o detalhe, que dependeria da mesma rede indisponível.
-          //
-          // Marca a visita como ativa AQUI, localmente: arma o guard de "uma visita
-          // por vez" (visitaAtivaRef, acima) antes da fila sincronizar. Janela residual
-          // e decisão de aceitá-la documentadas em `preservarSeSemConexao`
-          // (utils/alertas.js) — o `id: null` é substituído pelo real na próxima
-          // resposta do servidor (foco da aba ou volta da conexão).
-          definirVisitaLocal({ id: null, hospitalId: hospital.id, origem: "MANUAL" });
-          avisarSemConexao(e.message);
-          return;
-        }
-        Alert.alert("Check-in", e.message || "Não foi possível fazer o check-in.");
-      }
-    },
-    // `visitaAtiva` sai da lista de propósito: o guard passou a ler o ref, então a
-    // função não precisa mais ser recriada a cada mudança de visita -- fica estável
-    // para o renderItem memoizado abaixo. O exhaustive-deps confirma que é dependência
-    // desnecessária.
-    [navigation, registrarCheckin, definirVisitaLocal]
-  );
+  // Mesmas regras do "Estou aqui agora" do detalhe; o check-in aceito abre o detalhe, que
+  // mostra o tempo e o "Não estou aqui".
+  const { checkin: fazerCheckin, enviandoId: checkinEnviandoId } = useCheckinNoHospital({
+    visitaAtiva,
+    definirLocal: definirVisitaLocal,
+    aoEntrar: abrirDetalhe,
+  });
 
   // ARQ-05: extraido do JSX e memoizado. Inline, ele criava uma funcao nova a cada
   // render da tela, e com ela um `onPress`/`onCheckin` novo por item -- o que anularia
