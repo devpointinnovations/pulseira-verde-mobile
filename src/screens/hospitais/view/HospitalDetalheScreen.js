@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera, FillLayer, LineLayer, MapView, MarkerView, ShapeSource } from "../../../utils/mapkit";
 import { Building2, Clock, Mail, MapPin, Phone } from "lucide-react-native";
@@ -14,9 +14,8 @@ import {
 } from "../../../components";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import { useHospital, useIndicadoresHospital } from "../hooks/useHospitais";
-import { useCheckoutManual } from "../../visitas/hooks/useMutacoesVisita";
+import { useEncerrarVisitaManual } from "../../visitas/hooks/useMutacoesVisita";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
-import { agendarFeedback } from "../../feedback/service/FeedbackNotificationService";
 import {
   calcularCentroide,
   circuloParaCoordenadas,
@@ -26,13 +25,11 @@ import {
 } from "../../../utils/geojson";
 import { getInitialViewState, MAP_STYLE } from "../../../utils/mapStyle";
 import {
-  duracaoMinutosDesde,
   formatarData,
   formatarDuracao,
   formatarNota,
   formatarPeriodo,
 } from "../../../utils/format";
-import { avisarSemConexao } from "../../../utils/alertas";
 import { avaliacaoSuficiente } from "../../../utils/indicadores";
 
 const TIPO_LABEL = {
@@ -98,7 +95,11 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   const visitaDoHospital = visitaAtiva?.hospitalId === id ? visitaAtiva : null;
   const visitaManual = visitaDoHospital?.origem === "MANUAL" ? visitaDoHospital : null;
   const [agora, setAgora] = useState(Date.now());
-  const { mutateAsync: registrarCheckout, isPending: enviandoCheckout } = useCheckoutManual();
+  const { encerrar: encerrarVisitaManual, enviando: enviandoCheckout } = useEncerrarVisitaManual({
+    visita: visitaManual,
+    hospitalNome: hospital?.nome,
+    definirLocal: definirVisitaLocal,
+  });
 
   // Temporizador hh:mm:ss atualizado a cada segundo enquanto houver visita ativa aqui.
   useEffect(() => {
@@ -108,53 +109,6 @@ export default function HospitalDetalheScreen({ navigation, route }) {
     const timer = setInterval(() => setAgora(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [visitaDoHospital]);
-
-  const encerrarVisitaManual = async () => {
-    if (!visitaManual) return;
-
-    // Épico 03 — E3-01: agenda o pedido de feedback ~1–5 min após a saída. Chamado
-    // tanto no sucesso quanto no checkout enfileirado (abaixo) — nos dois casos a
-    // saída está registrada do ponto de vista do usuário. `duracaoMinutos` decide se a
-    // visita foi longa o bastante para convidar (RN-01/RN-07): online vem da resposta do
-    // checkout; offline é calculada localmente a partir da entrada.
-    const encerrarLocalmente = (duracaoMinutos) => {
-      agendarFeedback({
-        visitaId: visitaManual.id,
-        hospitalId: visitaManual.hospitalId,
-        hospitalNome: hospital?.nome,
-        saidaEm: new Date().toISOString(),
-        duracaoMinutos,
-      }).catch((erro) => {
-        // A saída já está registrada; perder a pendência de avaliação não justifica
-        // alertar o usuário, mas a falha (ex.: disco cheio) não pode sumir em silêncio.
-        // eslint-disable-next-line no-console
-        console.warn("HospitalDetalheScreen: falha ao agendar o feedback", erro?.message);
-      });
-    };
-
-    try {
-      // A mutação grava "sem visita" na query compartilhada: o cronômetro some e o
-      // heartbeat da visita encerrada para já, sem esperar o foco da aba Início.
-      const resposta = await registrarCheckout(visitaManual.id);
-      encerrarLocalmente(resposta?.duracaoMinutos);
-    } catch (e) {
-      if (e.enfileirado) {
-        // Sem conexão, o checkout foi guardado para sincronizar depois (OPS-05).
-        // O cronômetro não pode continuar rodando para uma visita que o usuário
-        // já encerrou — sem isto, ele ficaria contando o tempo indefinidamente.
-        // Janela residual e decisão de aceitá-la documentadas em
-        // `preservarSeSemConexao` (utils/alertas.js).
-        encerrarLocalmente(duracaoMinutosDesde(visitaManual.entrada));
-        definirVisitaLocal(null);
-        avisarSemConexao(e.message);
-        return;
-      }
-      Alert.alert(
-        "Check-out",
-        e.message || "Não foi possível finalizar o check-out. Tente novamente."
-      );
-    }
-  };
 
   // O mapa do detalhe mostra o mesmo halo de 25 m da aba Mapa (consistência com a
   // decisão exibição-≠-detecção da F-07): o polígono verdadeiro do backend continua

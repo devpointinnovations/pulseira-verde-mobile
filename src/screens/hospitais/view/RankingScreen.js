@@ -107,7 +107,7 @@ export default function RankingScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <CSHeader
         title="Ranking de hospitais"
-        onBack={navigation?.goBack ? () => navigation.goBack() : undefined}
+        onBack={(navigation?.getState?.()?.index ?? 0) > 0 ? () => navigation.goBack() : undefined}
       />
 
       <View style={styles.filtros}>
