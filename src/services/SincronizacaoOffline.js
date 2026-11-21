@@ -1,7 +1,9 @@
 import { ErroDeConexao } from "../config/http";
 import { itensDaFila, marcarTentativa, removerDaFila, vincularSaidaPendente } from "../config/filaOffline";
 import VisitaService from "../screens/visitas/service/VisitaService";
-import { invalidarVisitaAtiva } from "../core/query/queryClient";
+import { invalidarVisitaAtiva, queryClient } from "../core/query/queryClient";
+import { queryKeys } from "../core/query/queryKeys";
+import { reenviarRequisicao, TIPO_REQUISICAO } from "../core/api/envioComFila";
 
 /**
  * Envia o que ficou na fila offline (OPS-05).
@@ -129,7 +131,8 @@ async function processarItem(item, seguintes, rodada) {
       envio = { ...item, corpo: { ...item.corpo, visitaId } };
     }
 
-    const resposta = await VisitaService.enviarEventoOffline(envio);
+    const resposta =
+      item.tipo === TIPO_REQUISICAO ? await reenviarRequisicao(envio) : await VisitaService.enviarEventoOffline(envio);
     await removerDaFila(item.chave);
     await aposEntregar(envio, resposta, seguintes, rodada);
     return "enviado";
@@ -187,8 +190,10 @@ export async function sincronizar() {
 
   if (enviados > 0) {
     // Check-in ou checkout guardado offline acabou de chegar ao servidor: a visita
-    // ativa mudou, e o heartbeat e o geofencing precisam seguir a visita nova.
+    // ativa mudou, e o heartbeat e o geofencing precisam seguir a visita nova. Uma
+    // avaliação guardada também muda o histórico da conta.
     void invalidarVisitaAtiva();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.conta.all });
   }
 
   const pendentes = (await itensDaFila()).length;

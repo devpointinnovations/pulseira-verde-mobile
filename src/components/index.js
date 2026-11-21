@@ -10,3 +10,4 @@ export { default as CSRatingStars } from "./CSRatingStars";
 export { default as CSChip } from "./CSChip";
 export { default as CSHospitalCard } from "./CSHospitalCard";
 export { default as CSOptionSheet } from "./CSOptionSheet";
+export { default as CSAvisoConexao } from "./CSAvisoConexao";

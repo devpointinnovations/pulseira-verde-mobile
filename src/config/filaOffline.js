@@ -54,13 +54,22 @@ async function ler() {
   }
 }
 
+// Quem mostra a fila na tela (aviso de conexão) é avisado a cada gravação, com o tamanho novo.
+const ouvintes = new Set();
+
+/** @returns {() => void} para de ouvir. */
+export function observarFila(ouvinte) {
+  ouvintes.add(ouvinte);
+  return () => ouvintes.delete(ouvinte);
+}
+
 async function gravar(itens) {
   if (itens.length === 0) {
     await AsyncStorage.removeItem(CHAVE);
-    return;
+  } else {
+    await AsyncStorage.setItem(CHAVE, JSON.stringify(itens));
   }
-
-  await AsyncStorage.setItem(CHAVE, JSON.stringify(itens));
+  ouvintes.forEach((ouvinte) => ouvinte(itens.length));
 }
 
 // Cada leitura-modificação-escrita da fila roda em série: a sincronização e a tarefa de
@@ -150,7 +159,7 @@ export function marcarTentativa(chave) {
 }
 
 export function limparFila() {
-  return emSerie(() => AsyncStorage.removeItem(CHAVE));
+  return emSerie(() => gravar([]));
 }
 
 /**

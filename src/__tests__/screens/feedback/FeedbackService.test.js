@@ -31,6 +31,20 @@ describe("FeedbackService (Épico 03)", () => {
     });
   });
 
+  test("sem internet o feedback vai para a fila offline, um por visita", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError("Network request failed"));
+    jest.spyOn(httpModule, "dispositivoSemInternet").mockResolvedValue(true);
+
+    await expect(FeedbackService.enviar({ visitaId: "v7", nota: 5 })).rejects.toMatchObject({ enfileirado: true });
+    await expect(FeedbackService.atualizar("fb7", { nota: 4 })).rejects.toMatchObject({ enfileirado: true });
+
+    const fila = JSON.parse(
+      await require("@react-native-async-storage/async-storage").default.getItem("@saude_monitor:filaOffline")
+    );
+    expect(fila.map((item) => item.chave)).toEqual(["feedback:v7", "feedback-edicao:fb7"]);
+    httpModule.dispositivoSemInternet.mockRestore();
+  });
+
   test("enviar faz POST anônimo em /api/v1/feedbacks (RN-20) sem Authorization", async () => {
     const payload = { visitaId: "v1", nota: 4, foiAtendido: "SIM" };
     const resp = await FeedbackService.enviar(payload);
