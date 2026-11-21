@@ -75,7 +75,7 @@ describe("RankingScreen (E4-05)", () => {
     renderizar();
     await screen.findByText("Hospital Alfa");
 
-    fireEvent.press(screen.getByLabelText("Ordenar por menor tempo"));
+    fireEvent.press(screen.getByLabelText("Ordenar por menor espera"));
 
     await waitFor(() => {
       expect(HospitalService.ranking).toHaveBeenLastCalledWith({

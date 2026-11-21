@@ -10,6 +10,7 @@ import {
   CSRatingStars,
 } from "../../../components";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { CATEGORIA_LABEL, TIPO_LABEL } from "../../../components/CSHospitalCard";
 import { useHospital, useIndicadoresHospital } from "../hooks/useHospitais";
 import { useEncerrarVisitaManual } from "../../visitas/hooks/useMutacoesVisita";
 import { useCheckinNoHospital } from "../../visitas/hooks/useCheckinNoHospital";
@@ -17,19 +18,6 @@ import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
 import { calcularCentroide, geojsonParaCoordenadas } from "../../../utils/geojson";
 import { formatarData, formatarNota, formatarPeriodo } from "../../../utils/format";
 import { avaliacaoSuficiente } from "../../../utils/indicadores";
-
-const TIPO_LABEL = {
-  PUBLICO: "Público",
-  PRIVADO: "Privado",
-  FILANTROPICO: "Filantrópico",
-};
-
-const CATEGORIA_LABEL = {
-  HOSPITAL: "Hospital",
-  UPA: "UPA",
-  UBS: "UBS",
-  OUTRO: "Outro",
-};
 
 function textoOuNulo(valor) {
   return typeof valor === "string" && valor.trim() ? valor : null;

@@ -16,6 +16,7 @@ import HospitaisScreen from "./src/screens/hospitais/view/HospitaisScreen.js";
 import HospitalDetalheScreen from "./src/screens/hospitais/view/HospitalDetalheScreen.js";
 import RankingScreen from "./src/screens/hospitais/view/RankingScreen.js";
 import SugerirHospitalScreen from "./src/screens/hospitais/view/SugerirHospitalScreen.js";
+import { useQuantidadeFeedbacksPendentes } from "./src/screens/feedback/hooks/useFeedbacksPendentes.js";
 import VisitaEmAndamentoScreen from "./src/screens/visitas/view/VisitaEmAndamentoScreen.js";
 import FeedbackFormScreen from "./src/screens/feedback/view/FeedbackFormScreen.js";
 import PerfilScreen from "./src/screens/perfil/view/PerfilScreen.js";
@@ -132,6 +133,7 @@ function Tabs() {
     // de navegação clássica (relatado pelo PO, com captura de tela do físico — a barra
     // de gestos, sem essa barra, não expõe o bug porque o inset é ~0).
     const insets = useSafeAreaInsets();
+    const pendentes = useQuantidadeFeedbacksPendentes();
 
     return (
         <Tab.Navigator
@@ -182,6 +184,8 @@ function Tabs() {
                     tabBarLabel: "Visitas",
                     tabBarAccessibilityLabel: "Visitas — histórico e avaliações pendentes",
                     tabBarIcon: IconeVisitas,
+                    tabBarBadge: pendentes > 0 ? pendentes : undefined,
+                    tabBarBadgeStyle: { backgroundColor: colors.error, color: colors.onError },
                 }}
             />
             <Tab.Screen
