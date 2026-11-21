@@ -11,6 +11,7 @@ import { render, screen, act } from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import { __setMockInsets } from "react-native-safe-area-context";
 import App from "../../../App";
+import { concluirOnboarding } from "../../screens/onboarding/service/OnboardingService";
 import * as FeedbackNotificationService from "../../screens/feedback/service/FeedbackNotificationService";
 
 // utils/mapkit (adaptador do MapLibre): expõe componentes nativos não
@@ -103,7 +104,9 @@ jest.mock("react-native-gesture-handler", () => {
  * A resposta é "sem visita ativa", que é o estado de quem abre o app pela primeira
  * vez — o caminho que este smoke test deve exercitar.
  */
-beforeEach(() => {
+beforeEach(async () => {
+  // Quem já passou pela apresentação abre direto nas abas.
+  await concluirOnboarding();
   global.fetch = jest.fn(async () => ({
     ok: true,
     status: 200,
@@ -114,8 +117,9 @@ beforeEach(() => {
 });
 
 describe("App — Bottom Tabs (E6-01)", () => {
-  it("monta o app e exibe as 4 abas (Início, Hospitais, Mapa, Perfil)", () => {
+  it("monta o app e exibe as 4 abas (Início, Hospitais, Mapa, Perfil)", async () => {
     render(<App />);
+    await screen.findByText("Início");
 
     expect(screen.getByText("Início")).toBeOnTheScreen();
     expect(screen.getByText("Hospitais")).toBeOnTheScreen();
@@ -123,8 +127,9 @@ describe("App — Bottom Tabs (E6-01)", () => {
     expect(screen.getByText("Perfil")).toBeOnTheScreen();
   });
 
-  it("abre a aba de hospitais por padrão de acessibilidade", () => {
+  it("abre a aba de hospitais por padrão de acessibilidade", async () => {
     render(<App />);
+    await screen.findByText("Início");
 
     const abaHospitais = screen.getByLabelText("Hospitais — lista com indicadores");
     const abaPerfil = screen.getByLabelText("Perfil — conta e privacidade");
@@ -137,7 +142,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
     expect(abaMapa).toBeOnTheScreen();
   });
 
-  it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", () => {
+  it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", async () => {
     // Relato do PO com captura de tela do físico: a barra ficava atrás dos botões do
     // Android. `insets.bottom` só é > 0 com a barra de navegação clássica — a de
     // gestos tem inset ~0 e não expõe o bug. `@react-navigation/bottom-tabs` soma esse
@@ -146,6 +151,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
     __setMockInsets({ top: 0, right: 0, bottom: 48, left: 0 });
 
     render(<App />);
+    await screen.findByText("Início");
 
     // `getByRole("tablist")` não resolve neste ambiente (RNTL não mapeia esse role em
     // particular); o elemento existe na árvore com `accessibilityRole="tablist"` — é
@@ -161,6 +167,17 @@ describe("App — Bottom Tabs (E6-01)", () => {
 
 afterEach(() => {
   __setMockInsets({ top: 0, right: 0, bottom: 0, left: 0 });
+});
+
+describe("App — apresentação na primeira abertura", () => {
+  it("quem ainda não passou pela apresentação abre nela, não nas abas", async () => {
+    await require("@react-native-async-storage/async-storage").default.__reset();
+
+    render(<App />);
+
+    expect(await screen.findByText("Saiba qual hospital atende melhor perto de você")).toBeOnTheScreen();
+    expect(screen.queryByText("Perfil")).toBeNull();
+  });
 });
 
 describe("App — abrir formulário a partir da notificação de feedback (RN-09)", () => {
