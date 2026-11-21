@@ -16,6 +16,7 @@ import HospitaisScreen from "./src/screens/hospitais/view/HospitaisScreen.js";
 import HospitalDetalheScreen from "./src/screens/hospitais/view/HospitalDetalheScreen.js";
 import RankingScreen from "./src/screens/hospitais/view/RankingScreen.js";
 import SugerirHospitalScreen from "./src/screens/hospitais/view/SugerirHospitalScreen.js";
+import VisitaEmAndamentoScreen from "./src/screens/visitas/view/VisitaEmAndamentoScreen.js";
 import FeedbackFormScreen from "./src/screens/feedback/view/FeedbackFormScreen.js";
 import PerfilScreen from "./src/screens/perfil/view/PerfilScreen.js";
 import HistoricoScreen from "./src/screens/perfil/view/HistoricoScreen.js";
@@ -36,7 +37,6 @@ const Tab = createBottomTabNavigator();
 
 // Abas do novo layout (Início, Ranking, Visitas, Perfil). Cada aba tem a sua pilha, para
 // que voltar do detalhe do hospital pouse na aba de onde o usuário veio (F-07, PO 10/09).
-// Início reúne a lista e o mapa até a tela nova de mapa com a lista "Perto de você".
 function InicioStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -44,6 +44,7 @@ function InicioStack() {
             <Stack.Screen name="MapaTela" component={GeoLocalizacaoScreen} />
             <Stack.Screen name="HospitalDetalhe" component={HospitalDetalheScreen} />
             <Stack.Screen name="SugerirHospital" component={SugerirHospitalScreen} />
+            <Stack.Screen name="VisitaEmAndamento" component={VisitaEmAndamentoScreen} />
         </Stack.Navigator>
     );
 }

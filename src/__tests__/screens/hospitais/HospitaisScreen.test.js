@@ -8,7 +8,7 @@
  * usuário via o app fechar sozinho logo ao tocar em "Check-in".
  */
 import React from "react";
-import { fireEvent, screen, waitFor, act } from "@testing-library/react-native";
+import { fireEvent, screen, waitFor, act, within } from "@testing-library/react-native";
 import { renderComProviders } from "../../helpers/renderComProviders";
 import { definirUsuarioDaSessao } from "../../../core/stores/sessaoStore";
 import { Alert } from "react-native";
@@ -99,7 +99,7 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
     renderizar();
     await screen.findByText("Hospital A");
 
-    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital por nome"), "Hospítal A");
+    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital ou UPA"), "Hospítal A");
     expect(screen.getByText("Hospital B")).toBeTruthy();
 
     await waitFor(() => expect(screen.queryByText("Hospital B")).toBeNull());
@@ -285,7 +285,7 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
       // esperar só "Hospital A" existir não garante que o destaque já aplicou
       // (achado sob carga: passava isolado, falhava junto com a suíte completa).
       await waitFor(() => {
-        const nomes = screen.getAllByText(/^Hospital [AB]$/).map((el) => el.props.children);
+        const nomes = within(screen.getByTestId("lista-hospitais")).getAllByText(/^Hospital [AB]$/).map((el) => el.props.children);
         expect(nomes).toEqual(["Hospital B", "Hospital A"]);
       });
     });
@@ -300,7 +300,7 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
 
       await waitFor(() => expect(HospitalService.buscarPorId).toHaveBeenCalledWith("hZ", { signal: expect.anything() }));
       await waitFor(() => {
-        const nomes = screen.getAllByText(/^Hospital [ABZ]$/).map((el) => el.props.children);
+        const nomes = within(screen.getByTestId("lista-hospitais")).getAllByText(/^Hospital [ABZ]$/).map((el) => el.props.children);
         expect(nomes).toEqual(["Hospital Z", "Hospital A", "Hospital B"]);
       });
     });
@@ -310,8 +310,42 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
       await screen.findByText("Hospital A");
 
       expect(HospitalService.buscarPorId).not.toHaveBeenCalled();
-      const nomes = screen.getAllByText(/^Hospital [AB]$/).map((el) => el.props.children);
+      const nomes = within(screen.getByTestId("lista-hospitais")).getAllByText(/^Hospital [AB]$/).map((el) => el.props.children);
       expect(nomes).toEqual(["Hospital A", "Hospital B"]);
+    });
+
+    test("visita ativa aparece no aviso do topo com os minutos, e o toque abre a visita", async () => {
+      const entrada = new Date(Date.now() - 42 * 60000).toISOString();
+      VisitaService.buscarAtiva.mockResolvedValue({ visita: { id: "v9", hospitalId: "hB", entrada } });
+      HospitalService.buscarPorId.mockResolvedValue(HOSPITAL_B);
+
+      renderizar();
+      const aviso = await screen.findByLabelText("Visita em andamento em Hospital B");
+      expect(within(aviso).getByText("42 min")).toBeTruthy();
+
+      fireEvent.press(aviso);
+      expect(NAVEGACAO.navigate).toHaveBeenCalledWith("VisitaEmAndamento");
+    });
+
+    test("sem o hospital e sem horário de entrada, o aviso fica genérico e sem minutos", async () => {
+      VisitaService.buscarAtiva.mockResolvedValue({ visita: { id: "v9", hospitalId: "hX" } });
+
+      renderizar();
+      const aviso = await screen.findByLabelText("Visita em andamento");
+      expect(within(aviso).getByText("Hospital")).toBeTruthy();
+      expect(within(aviso).queryByText(/min/)).toBeNull();
+    });
+
+    test("'Ver ranking' abre a aba Ranking e o botão do mapa abre o mapa", async () => {
+      renderizar();
+      await screen.findByText("Hospital A");
+
+      fireEvent.press(screen.getByText("Ver ranking"));
+      fireEvent.press(screen.getByLabelText("Ver hospitais no mapa"));
+
+      expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Ranking");
+      expect(NAVEGACAO.navigate).toHaveBeenCalledWith("MapaTela");
+      expect(screen.queryByText("Visita em andamento")).toBeNull();
     });
 
     test("falha ao buscar o hospital ativo não quebra a lista (fallback silencioso)", async () => {
@@ -358,7 +392,7 @@ describe("HospitaisScreen — lista do catálogo no aparelho e indicadores do se
     renderizar();
 
     expect(await screen.findByText("12 avaliações")).toBeTruthy();
-    expect(screen.getByText(/Tempo médio/)).toBeTruthy();
+    expect(screen.getByLabelText(/Tempo médio de espera/)).toBeTruthy();
   });
 
   test("hospital sem indicadores na resposta fica sem nota", async () => {
@@ -425,7 +459,7 @@ describe("HospitaisScreen — lista do catálogo no aparelho e indicadores do se
     renderizar();
     await screen.findByText("Upa Riacho Fundo");
 
-    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital por nome"), "AGUA");
+    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital ou UPA"), "AGUA");
 
     await waitFor(() => expect(screen.queryByText("Upa Riacho Fundo")).toBeNull());
     expect(screen.getByText("Clínica Água")).toBeTruthy();
@@ -474,7 +508,7 @@ describe("HospitaisScreen — lista do catálogo no aparelho e indicadores do se
     renderizar();
     await screen.findByText("Upa Riacho Fundo");
 
-    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital por nome"), "inexistente");
+    fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital ou UPA"), "inexistente");
 
     expect(await screen.findByText("Nenhum hospital encontrado")).toBeTruthy();
   });
