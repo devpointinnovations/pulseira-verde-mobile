@@ -22,26 +22,11 @@ import HospitalService from "../../../screens/hospitais/service/HospitalService"
 import VisitaService from "../../../screens/visitas/service/VisitaService";
 import { agendarFeedback } from "../../../screens/feedback/service/FeedbackNotificationService";
 import { ErroSemInternet } from "../../../config/http";
+import { Alert as AlertModule, Linking } from "react-native";
 
 jest.mock("../../../screens/hospitais/service/HospitalService");
 jest.mock("../../../screens/visitas/service/VisitaService");
 jest.mock("../../../screens/feedback/service/FeedbackNotificationService");
-
-// utils/mapkit (adaptador do MapLibre): componentes nativos não suportados pelo Jest;
-// substituídos por Views textuais (mesmo padrão de src/__tests__/screens/App.test.js).
-jest.mock("../../../utils/mapkit", () => {
-  const { View } = require("react-native");
-  const stub = (props) => <View {...props} />;
-  return {
-    __esModule: true,
-    MapView: stub,
-    Camera: stub,
-    MarkerView: stub,
-    ShapeSource: stub,
-    FillLayer: stub,
-    LineLayer: stub,
-  };
-});
 
 // Guarda o callback de foco mais recente para o teste poder simular um segundo
 // foco da tela (ex.: voltar de outro app) sem desmontar o componente.
@@ -148,7 +133,7 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
     renderizar();
 
     expect(await screen.findByText("Check-in manual ativo")).toBeTruthy();
-    expect(screen.getByText("Você está em Hospital Central")).toBeTruthy();
+    expect(screen.queryByText("Estou aqui agora")).toBeNull();
     expect(screen.getByText("Não estou aqui")).toBeTruthy();
     // Cronômetro formatado hh:mm:ss (>= 00:01:05, sem travar em 00:00:00).
     expect(screen.getByLabelText(/Tempo de permanência 00:01:/)).toBeTruthy();
@@ -391,12 +376,111 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
     expect(screen.getByText("4,2")).toBeTruthy();
   });
 
-  test("sem geofence não renderiza o mapa", async () => {
-    HospitalService.buscarPorId.mockResolvedValue({ ...HOSPITAL, geofence: null });
+  test("'Como chegar' abre a rota pelo centro do geofence; sem coordenadas, pelo endereço", async () => {
+    const abrir = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    renderizar();
+    fireEvent.press(await screen.findByText("Como chegar"));
+    expect(abrir).toHaveBeenLastCalledWith(expect.stringMatching(/destination=-15\.80\d*%2C-47\.90\d*$/));
+
+    HospitalService.buscarPorId.mockResolvedValue({ ...HOSPITAL, id: "h2", geofence: null });
+    renderizar("h2");
+    fireEvent.press((await screen.findAllByText("Como chegar")).at(-1));
+    expect(abrir).toHaveBeenLastCalledWith(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent("Hospital Central, Rua das Flores, 100, Brasília")}`
+    );
+    abrir.mockRestore();
+  });
+
+  test("hospital com poucos dados: etiquetas pelo código, 'Inativo', sem endereço e sem espera", async () => {
+    HospitalService.buscarPorId.mockResolvedValue({
+      id: "h1",
+      nome: "Unidade X",
+      tipo: "MISTO",
+      categoria: "OUTRO_TIPO",
+      ativo: false,
+    });
+    HospitalService.buscarIndicadores.mockResolvedValue({
+      indicadoresDisponiveis: true,
+      notaMedia: 3.5,
+      nAvaliacoes: 8,
+    });
 
     renderizar();
+    await screen.findByText("Unidade X");
+
+    expect(screen.getByText("OUTRO_TIPO")).toBeTruthy();
+    expect(screen.getByText("MISTO")).toBeTruthy();
+    expect(screen.getByText("Inativo")).toBeTruthy();
+    expect(screen.getByText("3,5")).toBeTruthy();
+    expect(screen.queryByText(/tempo médio de espera/)).toBeNull();
+    expect(screen.queryByText(/atendimentos no período/)).toBeNull();
+    expect(screen.queryByText(/Período:/)).toBeNull();
+  });
+
+  test("voltar funciona enquanto o hospital carrega", () => {
+    HospitalService.buscarPorId.mockReturnValue(new Promise(() => {}));
+    renderizar();
+    fireEvent.press(screen.getByLabelText("Voltar"));
+    expect(NAVEGACAO.goBack).toHaveBeenCalled();
+  });
+
+  test("'Ligar' e 'E-mail' usam o contato; sem contato, os botões somem", async () => {
+    const abrir = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    renderizar();
+    fireEvent.press(await screen.findByText("Ligar"));
+    fireEvent.press(screen.getByText("E-mail"));
+    expect(abrir).toHaveBeenCalledWith("tel:6133334444");
+    expect(abrir).toHaveBeenCalledWith("mailto:contato@hospitalcentral.df.gov.br");
+    abrir.mockRestore();
+  });
+
+  test("sem contato, só 'Como chegar' aparece", async () => {
+    HospitalService.buscarPorId.mockResolvedValue({ ...HOSPITAL, contato: null, horarioFuncionamento: null });
+    renderizar();
+    await screen.findByText("Como chegar");
+    expect(screen.queryByText("Ligar")).toBeNull();
+    expect(screen.queryByText("E-mail")).toBeNull();
+    expect(screen.queryByText("24 horas")).toBeNull();
+  });
+
+  test("mostra etiquetas, nota e o tempo de espera em minutos", async () => {
+    renderizar();
     await screen.findByText("Hospital Central");
-    expect(screen.queryByTestId("map-stub")).toBeNull();
+    expect(screen.getByText("HOSPITAL GERAL")).toBeTruthy();
+    expect(screen.getByText("Público")).toBeTruthy();
+    expect(screen.getByText("24 horas")).toBeTruthy();
+    expect(screen.getByText("4,2")).toBeTruthy();
+    expect(screen.getByText("45 min")).toBeTruthy();
+    expect(screen.getByText("com base em 20 atendimentos no período")).toBeTruthy();
+  });
+
+  test("'Estou aqui agora' faz o check-in manual e o cronômetro toma o lugar do botão", async () => {
+    VisitaService.checkin.mockImplementation(async () => {
+      const visita = { id: "v7", hospitalId: "h1", origem: "MANUAL", entrada: new Date().toISOString() };
+      VisitaService.buscarAtiva.mockResolvedValue({ visita });
+      return visita;
+    });
+    renderizar();
+    await act(async () => {
+      fireEvent.press(await screen.findByText("Estou aqui agora"));
+    });
+
+    expect(VisitaService.checkin).toHaveBeenCalledWith(expect.objectContaining({ hospitalId: "h1", origem: "MANUAL" }));
+    expect(await screen.findByText("Check-in manual ativo")).toBeTruthy();
+    expect(screen.queryByText("Estou aqui agora")).toBeNull();
+  });
+
+  test("'Estou aqui agora' com visita em outro hospital avisa e não faz check-in", async () => {
+    VisitaService.buscarAtiva.mockResolvedValue({ visita: { id: "v2", hospitalId: "outro", origem: "MANUAL" } });
+    renderizar();
+    await screen.findByText("Hospital Central");
+    await waitFor(() => expect(VisitaService.buscarAtiva).toHaveBeenCalled());
+    await act(async () => {});
+    jest.spyOn(AlertModule, "alert").mockImplementation(() => {});
+    fireEvent.press(screen.getByText("Estou aqui agora"));
+
+    expect(AlertModule.alert).toHaveBeenCalledWith("Check-in ativo", expect.any(String));
+    expect(VisitaService.checkin).not.toHaveBeenCalled();
   });
 
   test("erro ao carregar o hospital mostra o empty state com nova tentativa", async () => {

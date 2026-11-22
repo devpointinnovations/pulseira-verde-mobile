@@ -1,12 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera, FillLayer, LineLayer, MapView, MarkerView, ShapeSource } from "../../../utils/mapkit";
-import { Building2, Clock, Mail, MapPin, Phone } from "lucide-react-native";
+import { Mail, MapPin, MapPinCheck, Navigation, Phone } from "lucide-react-native";
 import {
-  CSBadge,
   CSButton,
-  CSCard,
   CSHeader,
   CSEmptyState,
   CSLoading,
@@ -15,21 +12,10 @@ import {
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import { useHospital, useIndicadoresHospital } from "../hooks/useHospitais";
 import { useEncerrarVisitaManual } from "../../visitas/hooks/useMutacoesVisita";
+import { useCheckinNoHospital } from "../../visitas/hooks/useCheckinNoHospital";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
-import {
-  calcularCentroide,
-  circuloParaCoordenadas,
-  coordenadasParaGeoJson,
-  geojsonParaCoordenadas,
-  RAIO_EXIBICAO_METROS,
-} from "../../../utils/geojson";
-import { getInitialViewState, MAP_STYLE } from "../../../utils/mapStyle";
-import {
-  formatarData,
-  formatarDuracao,
-  formatarNota,
-  formatarPeriodo,
-} from "../../../utils/format";
+import { calcularCentroide, geojsonParaCoordenadas } from "../../../utils/geojson";
+import { formatarData, formatarNota, formatarPeriodo } from "../../../utils/format";
 import { avaliacaoSuficiente } from "../../../utils/indicadores";
 
 const TIPO_LABEL = {
@@ -45,15 +31,41 @@ const CATEGORIA_LABEL = {
   OUTRO: "Outro",
 };
 
-const BRASIL_REGION = {
-  latitude: -14.235,
-  longitude: -51.9253,
-  latitudeDelta: 20,
-  longitudeDelta: 20,
-};
+function textoOuNulo(valor) {
+  return typeof valor === "string" && valor.trim() ? valor : null;
+}
+
+/** Rota no app de mapas do aparelho: pelas coordenadas quando existem, senão pelo endereço. */
+function urlComoChegar(hospital) {
+  const doGeofence = hospital.geofence ? calcularCentroide(geojsonParaCoordenadas(hospital.geofence)) : null;
+  const loc = doGeofence || hospital.localizacao;
+  const destino =
+    loc && Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)
+      ? `${loc.latitude},${loc.longitude}`
+      : [hospital.nome, hospital.endereco?.logradouro, hospital.endereco?.cidade].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`;
+}
+
+function Etiqueta({ texto, destaque = false }) {
+  return (
+    <View style={[styles.etiqueta, destaque && styles.etiquetaDestaque]}>
+      <Text style={[styles.etiquetaTexto, destaque && styles.etiquetaTextoDestaque]}>{texto}</Text>
+    </View>
+  );
+}
+
+function Acao({ icone: Icone, rotulo, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.acao}>
+      <Icone size={22} color={colors.primary} />
+      <Text style={styles.acaoTexto}>{rotulo}</Text>
+    </Pressable>
+  );
+}
 
 /**
- * Detalhe público do hospital: dados, geofence no mapa e indicadores.
+ * Detalhe público do hospital (layout novo): etiquetas, nota, tempo de espera, ações de
+ * contato e "Estou aqui agora" (check-in manual com as regras da lista do Início).
  */
 export default function HospitalDetalheScreen({ navigation, route }) {
   const { id } = route.params || {};
@@ -83,22 +95,23 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   };
 
   // Visita ativa deste hospital: o temporizador hh:mm:ss aparece para qualquer origem
-  // (antes só no check-in manual; no teste de campo da rc.6, em 21/10/2026, a visita
-  // automática abria este detalhe sem nada). O botão de checkout ("Não estou aqui") fica
-  // só no check-in manual: a visita automática é encerrada pelo geofence (decisão do PO
-  // em 21/10/2026). Visita de outro hospital nunca aparece aqui.
-  //
-  // Lida da visita ativa compartilhada com o observador global e recarregada ao focar a
-  // tela (ex.: ao voltar do check-in da lista Hospital → este detalhe). Modo anônimo usa
-  // `dispositivoId` (§3.3). Sem conexão não é "sem visita ativa".
+  // (teste de campo da rc.6, 21/10/2026). O "Não estou aqui" fica só no check-in manual:
+  // a visita automática é encerrada pelo geofence (decisão do PO em 21/10/2026). Visita
+  // de outro hospital nunca aparece aqui. Sem conexão não é "sem visita ativa".
   const { visita: visitaAtiva, definirLocal: definirVisitaLocal } = useVisitaAtivaDaTela();
   const visitaDoHospital = visitaAtiva?.hospitalId === id ? visitaAtiva : null;
   const visitaManual = visitaDoHospital?.origem === "MANUAL" ? visitaDoHospital : null;
-  const [agora, setAgora] = useState(Date.now());
+  const [agora, setAgora] = useState(() => Date.now());
   const { encerrar: encerrarVisitaManual, enviando: enviandoCheckout } = useEncerrarVisitaManual({
     visita: visitaManual,
     hospitalNome: hospital?.nome,
     definirLocal: definirVisitaLocal,
+  });
+  // O check-in aceito aparece aqui mesmo: o cartão da visita substitui o botão.
+  const { checkin, enviandoId } = useCheckinNoHospital({
+    visitaAtiva,
+    definirLocal: definirVisitaLocal,
+    aoEntrar: () => {},
   });
 
   // Temporizador hh:mm:ss atualizado a cada segundo enquanto houver visita ativa aqui.
@@ -110,50 +123,9 @@ export default function HospitalDetalheScreen({ navigation, route }) {
     return () => clearInterval(timer);
   }, [visitaDoHospital]);
 
-  // O mapa do detalhe mostra o mesmo halo de 25 m da aba Mapa (consistência com a
-  // decisão exibição-≠-detecção da F-07): o polígono verdadeiro do backend continua
-  // existindo só no servidor, para a detecção. Sem centro (sem geofence e sem
-  // localização), não há mapa — mesmo comportamento de antes.
-  const centroide = useMemo(() => {
-    const doGeofence = hospital?.geofence
-      ? calcularCentroide(geojsonParaCoordenadas(hospital.geofence))
-      : null;
-    if (doGeofence) {
-      return doGeofence;
-    }
-    const loc = hospital?.localizacao;
-    return loc && Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude) ? loc : null;
-  }, [hospital]);
-  const haloGeoJson = useMemo(
-    () => (centroide ? coordenadasParaGeoJson(circuloParaCoordenadas(centroide, RAIO_EXIBICAO_METROS)) : null),
-    [centroide]
-  );
-
-  // Enquadramento fechado (~zoom 17): com o halo de 25 m, o enquadramento largo
-  // anterior (delta 0.02, ~zoom 14) deixaria o círculo invisível — e mostra o
-  // prédio da unidade em vez do bairro.
-  const region = useMemo(() => {
-    if (centroide) {
-      return {
-        latitude: centroide.latitude,
-        longitude: centroide.longitude,
-        latitudeDelta: 0.002,
-        longitudeDelta: 0.002,
-      };
-    }
-    return BRASIL_REGION;
-  }, [centroide]);
-
-  // Posição da câmera no formato de `utils/mapkit`; recalculada quando o hospital carrega
-  // (antes do `carregar`, `region` é BRASIL_REGION). Fica antes dos `return`
-  // condicionais, junto dos demais hooks.
-  const cameraDaRegiao = useMemo(() => getInitialViewState(region), [region]);
-
-  // Formata o tempo decorrido como hh:mm:ss (temporizador da visita ativa).
-  // IMPORTANTE: precisa ficar antes dos `return` condicionais abaixo — hooks não podem
-  // ser chamados condicionalmente (Regras de Hooks). Estar depois deles fazia o número
-  // de hooks variar entre a renderização de "carregando" e a renderização com dados
-  // prontos, derrubando o app com "Rendered more hooks than during the previous render".
+  // IMPORTANTE: precisa ficar antes dos `return` condicionais abaixo (Regras de Hooks):
+  // o número de hooks variando entre "carregando" e "dados prontos" derrubava o app com
+  // "Rendered more hooks than during the previous render".
   const temporizadorTexto = useMemo(() => {
     if (!visitaDoHospital?.entrada) return "00:00:00";
     const decorrido = Math.max(0, Math.floor((agora - new Date(visitaDoHospital.entrada).getTime()) / 1000));
@@ -167,7 +139,7 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   if (carregando) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <CSHeader title="Hospital" onBack={() => navigation.goBack()} />
+        <CSHeader title="" onBack={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
           <CSLoading width="90%" height={20} />
           <CSLoading width="60%" height={14} />
@@ -197,177 +169,124 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   // mesmo hospital podia mostrar "sem avaliações suficientes" na lista mas nota real
   // no detalhe.
   const temIndicadores = avaliacaoSuficiente(dadosIndicadores);
+  const espera = dadosIndicadores?.tempoMedianoMinutos;
+  const periodo = temIndicadores ? formatarPeriodo(dadosIndicadores.periodo) : null;
 
-  // Novos campos (opcionais) — tratados com segurança quando ausentes.
-  const tipoUnidade =
-    typeof hospital?.tipoUnidade === "string" && hospital.tipoUnidade.trim()
-      ? hospital.tipoUnidade
-      : null;
-  const horarioTexto =
-    typeof hospital?.horarioFuncionamento === "string" &&
-    hospital.horarioFuncionamento.trim()
-      ? hospital.horarioFuncionamento
-      : null;
+  const tipoUnidade = textoOuNulo(hospital.tipoUnidade);
+  const horarioTexto = textoOuNulo(hospital.horarioFuncionamento);
+  const telefone = textoOuNulo(hospital.contato?.telefone);
+  const email = textoOuNulo(hospital.contato?.email);
+  const endereco = [hospital.endereco?.logradouro, hospital.endereco?.cidade].filter(Boolean).join(", ");
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader title={hospital.nome} onBack={() => navigation.goBack()} />
+      <CSHeader title="" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.etiquetas}>
+          <Etiqueta texto={tipoUnidade || CATEGORIA_LABEL[hospital.categoria] || hospital.categoria} />
+          <Etiqueta texto={TIPO_LABEL[hospital.tipo] || hospital.tipo} />
+          {horarioTexto ? <Etiqueta texto={horarioTexto} destaque /> : null}
+          {hospital.ativo === false ? <Etiqueta texto="Inativo" /> : null}
+        </View>
+
+        <View>
+          <Text style={styles.nome} accessibilityRole="header">
+            {hospital.nome}
+          </Text>
+          {endereco ? (
+            <View style={styles.enderecoLinha}>
+              <MapPin size={18} color={colors.onSurfaceVariant} />
+              <Text style={styles.endereco}>
+                {endereco}
+                {hospital.endereco?.uf ? ` — ${hospital.endereco.uf}` : ""}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
         {visitaDoHospital ? (
-          <CSCard style={styles.section}>
-            <Text style={styles.checkinActiveTitle}>
+          <View style={styles.visita}>
+            <Text style={styles.visitaTitulo}>
               {visitaManual ? "Check-in manual ativo" : "Check-in automático ativo"}
             </Text>
-            <Text style={styles.checkinSubtitle}>
-              Você está em {hospital.nome}
-            </Text>
-            <Text
-              accessibilityLabel={`Tempo de permanência ${temporizadorTexto}`}
-              style={styles.temporizador}
-            >
+            <Text accessibilityLabel={`Tempo de permanência ${temporizadorTexto}`} style={styles.temporizador}>
               {temporizadorTexto}
             </Text>
-            <Text style={styles.temporizadorLabel}>tempo de permanência</Text>
+            <Text style={styles.visitaRotulo}>tempo de permanência</Text>
             {visitaManual ? (
               <CSButton
                 label="Não estou aqui"
                 onPress={encerrarVisitaManual}
                 loading={enviandoCheckout}
                 disabled={enviandoCheckout}
-                variant="tertiary"
+                variant="secondary"
                 style={styles.checkoutButton}
               />
             ) : null}
-          </CSCard>
-        ) : null}
-
-        {haloGeoJson ? (
-          <View style={styles.mapContainer}>
-            <MapView style={styles.map} styleURL={MAP_STYLE}>
-              <Camera
-                centerCoordinate={cameraDaRegiao.centerCoordinate}
-                zoomLevel={cameraDaRegiao.zoomLevel}
-              />
-              <ShapeSource id="geofence" shape={haloGeoJson}>
-                <FillLayer
-                  id="geofence-fill"
-                  style={{ fillColor: "rgba(0,97,147,0.16)" }}
-                />
-                <LineLayer
-                  id="geofence-line"
-                  style={{ lineColor: colors.primary, lineWidth: 2 }}
-                />
-              </ShapeSource>
-              {centroide ? (
-                <MarkerView coordinate={[centroide.longitude, centroide.latitude]}>
-                  <View style={styles.mapMarker}>
-                    <Building2 size={18} color={colors.onPrimary} />
-                  </View>
-                </MarkerView>
-              ) : null}
-            </MapView>
           </View>
         ) : null}
 
-        <View style={styles.badgesRow}>
-          <CSBadge label={TIPO_LABEL[hospital.tipo] || hospital.tipo} variant="info" />
-          {hospital.categoria ? (
-            <CSBadge
-              label={CATEGORIA_LABEL[hospital.categoria] || hospital.categoria}
-              variant="neutral"
+        {temIndicadores ? (
+          <View style={styles.metricas}>
+            <View style={[styles.metrica, styles.metricaNota]}>
+              <Text style={styles.notaValor}>{formatarNota(dadosIndicadores.notaMedia)}</Text>
+              <CSRatingStars nota={dadosIndicadores.notaMedia} size={18} />
+              <Text style={styles.metricaRotulo}>{dadosIndicadores.nAvaliacoes} avaliações</Text>
+            </View>
+            {espera != null ? (
+              <View style={[styles.metrica, styles.metricaEspera]}>
+                <Text style={styles.esperaValor}>
+                  {espera}
+                  <Text style={styles.esperaUnidade}> min</Text>
+                </Text>
+                <Text style={styles.esperaRotulo}>tempo médio de espera</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={styles.semIndicadores}>Ainda sem avaliações suficientes</Text>
+        )}
+
+        {temIndicadores ? (
+          <View>
+            {dadosIndicadores.nVisitas != null ? (
+              <Text style={styles.transparencia}>
+                com base em {dadosIndicadores.nVisitas} atendimentos no período
+              </Text>
+            ) : null}
+            {periodo ? <Text style={styles.transparencia}>Período: {periodo}</Text> : null}
+            {dadosIndicadores.atualizadoEm ? (
+              <Text style={styles.transparencia}>Atualizado em {formatarData(dadosIndicadores.atualizadoEm)}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.acoes}>
+          <Acao icone={Navigation} rotulo="Como chegar" onPress={() => Linking.openURL(urlComoChegar(hospital))} />
+          {telefone ? (
+            <Acao
+              icone={Phone}
+              rotulo="Ligar"
+              onPress={() => Linking.openURL(`tel:${telefone.replace(/[^\d+]/g, "")}`)}
             />
           ) : null}
-          {tipoUnidade ? (
-            <CSBadge label={tipoUnidade} variant="warning" />
-          ) : null}
-          <CSBadge label={hospital.ativo ? "Ativo" : "Inativo"} variant={hospital.ativo ? "positive" : "neutral"} />
+          {email ? <Acao icone={Mail} rotulo="E-mail" onPress={() => Linking.openURL(`mailto:${email}`)} /> : null}
         </View>
-
-        <CSCard style={styles.section}>
-          <Text style={styles.sectionTitle}>Endereço</Text>
-          <View style={styles.infoRow}>
-            <MapPin size={18} color={colors.outline} />
-            <Text style={styles.infoText}>
-              {hospital.endereco?.logradouro}, {hospital.endereco?.cidade} — {hospital.endereco?.uf}
-              {hospital.endereco?.cep ? ` · CEP ${hospital.endereco.cep}` : ""}
-            </Text>
-          </View>
-        </CSCard>
-
-        <CSCard style={styles.section}>
-          <Text style={styles.sectionTitle}>Contato</Text>
-          {hospital.contato?.telefone ? (
-            <View style={styles.infoRow}>
-              <Phone size={18} color={colors.outline} />
-              <Text style={styles.infoText}>{hospital.contato.telefone}</Text>
-            </View>
-          ) : null}
-          {hospital.contato?.email ? (
-            <View style={styles.infoRow}>
-              <Mail size={18} color={colors.outline} />
-              <Text style={styles.infoText}>{hospital.contato.email}</Text>
-            </View>
-          ) : null}
-        </CSCard>
-
-        <CSCard style={styles.section}>
-          <Text style={styles.sectionTitle}>Horário de funcionamento</Text>
-          <View style={styles.infoRow}>
-            <Clock size={18} color={colors.outline} />
-            {horarioTexto ? (
-              <Text style={styles.infoText}>{horarioTexto}</Text>
-            ) : (
-              <Text style={styles.infoTextMuted}>Horário não informado</Text>
-            )}
-          </View>
-        </CSCard>
-
-        <CSCard style={styles.section}>
-          <Text style={styles.sectionTitle}>Avaliação pública</Text>
-
-          {temIndicadores ? (
-            <View style={styles.indicadores}>
-              <View style={styles.notaBlock}>
-                <Text style={styles.notaValue}>{formatarNota(dadosIndicadores.notaMedia)}</Text>
-                <CSRatingStars nota={dadosIndicadores.notaMedia} size={20} />
-                <Text style={styles.notaCount}>
-                  {dadosIndicadores.nAvaliacoes} avaliações
-                </Text>
-              </View>
-
-              {dadosIndicadores.tempoMedianoMinutos != null ? (
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricLabel}>Tempo médio de atendimento</Text>
-                  <Text style={styles.metricValue}>
-                    {formatarDuracao(dadosIndicadores.tempoMedianoMinutos)}
-                  </Text>
-                </View>
-              ) : null}
-
-              {dadosIndicadores.nVisitas != null ? (
-                <Text style={styles.transparencia}>
-                  com base em {dadosIndicadores.nVisitas} atendimentos no período
-                </Text>
-              ) : null}
-
-              {formatarPeriodo(dadosIndicadores.periodo) ? (
-                <Text style={styles.transparencia}>
-                  Período: {formatarPeriodo(dadosIndicadores.periodo)}
-                </Text>
-              ) : null}
-
-              {dadosIndicadores.atualizadoEm ? (
-                <Text style={styles.atualizado}>
-                  Atualizado em {formatarData(dadosIndicadores.atualizadoEm)}
-                </Text>
-              ) : null}
-            </View>
-          ) : (
-            <Text style={styles.semIndicadores}>Ainda sem avaliações suficientes</Text>
-          )}
-        </CSCard>
       </ScrollView>
+
+      {visitaDoHospital ? null : (
+        <SafeAreaView edges={["bottom"]} style={styles.rodape}>
+          <CSButton
+            label="Estou aqui agora"
+            icon={MapPinCheck}
+            onPress={() => checkin(hospital)}
+            loading={enviandoId === hospital.id}
+            disabled={enviandoId !== null}
+          />
+          <Text style={styles.rodapeTexto}>Com a localização ligada, isso acontece sozinho.</Text>
+        </SafeAreaView>
+      )}
     </SafeAreaView>
   );
 }
@@ -376,130 +295,73 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   scrollContent: {
     padding: spacing.s4,
+    paddingTop: 0,
     gap: spacing.s4,
-    paddingBottom: spacing.s12,
+    paddingBottom: spacing.s8,
   },
   loadingContainer: {
     padding: spacing.s4,
     gap: spacing.s4,
   },
-  mapContainer: {
-    borderRadius: radii.xl,
-    overflow: "hidden",
+  etiquetas: { flexDirection: "row", flexWrap: "wrap", gap: spacing.s2 },
+  etiqueta: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.s3,
+    paddingVertical: spacing.s1,
   },
-  checkinActiveTitle: {
-    ...typography.titleMd,
-    color: colors.geoActive,
+  etiquetaDestaque: { backgroundColor: colors.primaryContainer },
+  etiquetaTexto: { ...typography.labelLg, color: colors.onSurfaceVariant },
+  etiquetaTextoDestaque: { color: colors.onPrimaryContainer },
+  nome: { ...typography.displayMd, color: colors.onSurface },
+  enderecoLinha: { flexDirection: "row", alignItems: "center", gap: spacing.s2, marginTop: spacing.s1 },
+  endereco: { ...typography.bodyLg, color: colors.onSurfaceVariant, flex: 1 },
+  visita: {
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 18,
+    padding: spacing.s4,
+    alignItems: "center",
   },
-  checkinSubtitle: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    marginTop: spacing.s1,
-  },
+  visitaTitulo: { ...typography.titleMd, color: colors.onPrimaryContainer },
   temporizador: {
     fontSize: 40,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
-    color: colors.onSurface,
-    marginTop: spacing.s2,
+    color: colors.onPrimaryContainer,
+    marginTop: spacing.s1,
   },
-  temporizadorLabel: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing.s2,
-  },
-  checkoutButton: {
-    marginTop: spacing.s2,
-  },
-  // BUG-06: cor de fundo enquanto os tiles do estilo remoto carregam, ou se a
-  // rede/token falhar — sem isso o fundo é o preto-azulado do renderizador nativo.
-  map: {
-    height: 200,
-    width: "100%",
-    backgroundColor: colors.surfaceContainerLow,
-  },
-  mapMarker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.s2,
-  },
-  section: {
-    gap: spacing.s3,
-  },
-  sectionTitle: {
-    ...typography.titleMd,
-    color: colors.onSurface,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.s2,
-  },
-  infoText: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+  visitaRotulo: { ...typography.bodySm, color: colors.onPrimaryContainer },
+  checkoutButton: { marginTop: spacing.s3, alignSelf: "stretch" },
+  metricas: { flexDirection: "row", gap: spacing.s3 },
+  metrica: { flex: 1, borderRadius: 18, padding: spacing.s4, gap: spacing.s1, minHeight: 128 },
+  metricaNota: { backgroundColor: colors.surfaceContainerLowest, borderWidth: 1, borderColor: colors.outlineVariant },
+  metricaEspera: { backgroundColor: colors.primaryContainer, justifyContent: "space-between" },
+  notaValor: { fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onSurface },
+  metricaRotulo: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  esperaValor: { fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onPrimaryContainer },
+  esperaUnidade: { ...typography.titleLg, color: colors.onPrimaryContainer },
+  esperaRotulo: { ...typography.bodyMd, color: colors.onPrimaryContainer },
+  transparencia: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  semIndicadores: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  acoes: { flexDirection: "row", gap: spacing.s3 },
+  acao: {
     flex: 1,
-  },
-  infoTextMuted: {
-    ...typography.bodyMd,
-    color: colors.outline,
-    fontStyle: "italic",
-    flex: 1,
-  },
-  indicadores: {
-    gap: spacing.s4,
-  },
-  notaBlock: {
     alignItems: "center",
+    gap: spacing.s1,
+    paddingVertical: spacing.s4,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  acaoTexto: { ...typography.labelLg, color: colors.onSurface },
+  rodape: {
+    paddingHorizontal: spacing.s4,
+    paddingTop: spacing.s3,
     gap: spacing.s2,
+    borderTopWidth: 1,
+    borderTopColor: colors.outlineVariant,
+    backgroundColor: colors.surface,
   },
-  notaValue: {
-    ...typography.displayLg,
-    color: colors.onSurface,
-  },
-  notaCount: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-  },
-  metricRow: {
-    // Regra "no-line" do Padrao-UI-UX-v2.0 (§5.3/5.5): separação de seções nunca por
-    // hairline — sempre espaço ou troca de tom. Era `borderTopWidth: 1`. Achado do
-    // code-review: uma primeira tentativa com fundo de tom trocou `paddingVertical`
-    // por `padding` (todos os lados), desalinhando esta linha dos textos irmãos
-    // (`transparencia`/`atualizado`) na mesma coluna. Aqui a separação vem só do
-    // espaço — o `gap` do container `indicadores` já cumpre a regra sem mexer no
-    // padding horizontal.
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing.s3,
-  },
-  metricLabel: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-  },
-  metricValue: {
-    ...typography.titleLg,
-    color: colors.onSurface,
-  },
-  atualizado: {
-    ...typography.bodySm,
-    color: colors.outline,
-  },
-  transparencia: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-  },
-  semIndicadores: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-  },
+  rodapeTexto: { ...typography.bodySm, color: colors.onSurfaceVariant, textAlign: "center", paddingBottom: spacing.s2 },
 });

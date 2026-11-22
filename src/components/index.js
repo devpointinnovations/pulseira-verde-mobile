@@ -1,7 +1,6 @@
 export { default as CSButton } from "./CSButton";
 export { default as CSTextField } from "./CSTextField";
 export { default as CSCard } from "./CSCard";
-export { default as CSBadge } from "./CSBadge";
 export { default as CSHeader } from "./CSHeader";
 export { default as CSIconButton } from "./CSIconButton";
 export { default as CSEmptyState } from "./CSEmptyState";
