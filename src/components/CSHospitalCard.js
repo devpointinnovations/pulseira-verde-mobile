@@ -6,13 +6,13 @@ import { formatarDuracao, formatarNota } from "../utils/format";
 import { avaliacaoSuficiente } from "../utils/indicadores";
 import CSRatingStars from "./CSRatingStars";
 
-const TIPO_LABEL = {
+export const TIPO_LABEL = {
   PUBLICO: "Público",
   PRIVADO: "Privado",
   FILANTROPICO: "Filantrópico",
 };
 
-const CATEGORIA_LABEL = {
+export const CATEGORIA_LABEL = {
   HOSPITAL: "Hospital",
   UPA: "UPA",
   UBS: "UBS",

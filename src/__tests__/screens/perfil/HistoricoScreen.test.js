@@ -153,9 +153,21 @@ describe("HistoricoScreen (E5-03/RN-22)", () => {
 
     renderizar();
     expect(await screen.findByText("Hospital Central")).toBeTruthy();
-    expect(screen.getByText("Finalizada")).toBeTruthy();
+    expect(screen.getByText("Finalizada · Automática")).toBeTruthy();
     expect(screen.getByText(/1h30 de permanência/)).toBeTruthy();
-    expect(screen.getByText("Automática")).toBeTruthy();
+    expect(screen.getByText("sem nota")).toBeTruthy();
+  });
+
+  test("a visita avaliada mostra a nota que a pessoa deu", async () => {
+    definirUsuarioDaSessao({ id: "u1", nome: "Marina" });
+    VisitaService.listarHistorico.mockResolvedValue({
+      content: [{ id: "v1", hospitalNome: "Hospital Central", entrada: "2026-08-30T10:00:00Z", status: "FINALIZADA", origem: "MANUAL" }],
+    });
+    FeedbackService.listarHistorico.mockResolvedValue({ content: [{ id: "f1", visitaId: "v1", nota: 4 }] });
+
+    renderizar();
+    expect(await screen.findByText("4,0")).toBeTruthy();
+    expect(screen.queryByText("sem nota")).toBeNull();
   });
 
   test("alterna para a aba de avaliações e lista os feedbacks", async () => {

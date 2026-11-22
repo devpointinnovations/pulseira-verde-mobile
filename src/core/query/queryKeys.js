@@ -18,6 +18,7 @@ export const queryKeys = {
   visitas: {
     all: ["visitas"],
     ativa: (identidade) => [...queryKeys.visitas.all, "ativa", identidade ?? "anonimo"],
+    feedbacksPendentes: () => [...queryKeys.visitas.all, "feedbacksPendentes"],
   },
   conta: {
     all: ["conta"],
