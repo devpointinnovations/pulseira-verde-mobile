@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
-import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
+import {BottomTabBar, createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {NavigationContainer} from "@react-navigation/native";
 import {SafeAreaProvider, useSafeAreaInsets} from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as Network from "expo-network";
 import {AppState, StyleSheet, View} from "react-native";
+import CSAvisoConexao from "./src/components/CSAvisoConexao";
 import {ClipboardList, MapPin, Trophy, User as UserIcon} from "lucide-react-native";
 import LoginScreen from "./src/screens/auth/view/LoginScreen.js";
 import EsqueciSenhaScreen from "./src/screens/auth/view/EsqueciSenhaScreen.js";
@@ -122,6 +123,16 @@ function voltarParaRaiz(navigation, aba, raiz) {
     }
 }
 
+// Aviso de "sem internet" e da fila offline logo acima da tab bar, em todas as abas.
+function BarraDeAbas(props) {
+    return (
+        <View>
+            <CSAvisoConexao />
+            <BottomTabBar {...props} />
+        </View>
+    );
+}
+
 // Navegação por Bottom Tabs (E6-01), com as 4 abas do novo layout: Início, Ranking,
 // Visitas e Perfil. A aba ativa ganha a pílula verde do design.
 function Tabs() {
@@ -137,6 +148,7 @@ function Tabs() {
 
     return (
         <Tab.Navigator
+            tabBar={BarraDeAbas}
             screenOptions={{
                 headerShown: false,
                 tabBarActiveTintColor: colors.onPrimaryContainer,

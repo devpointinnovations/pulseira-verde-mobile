@@ -205,6 +205,13 @@ const ETAPAS = [
   { chave: "avaliacao", titulo: "Avaliação geral", descricao: "Dê uma nota de 1 a 5 para sua visita." },
 ];
 
+function tituloAgradecimento(feedbackId, guardado) {
+  if (guardado) {
+    return "Avaliação guardada";
+  }
+  return feedbackId ? "Avaliação atualizada!" : "Obrigado pela sua avaliação!";
+}
+
 export default function FeedbackFormScreen({ navigation, route }) {
   const { visitaId, hospitalNome, feedbackId, avaliacao } = route.params || {};
 
@@ -212,6 +219,8 @@ export default function FeedbackFormScreen({ navigation, route }) {
   const [enviando, setEnviando] = useState(false);
   const { mutateAsync: enviarFeedback } = useEnviarFeedback();
   const [enviado, setEnviado] = useState(false);
+  // Sem internet a avaliação vai para a fila offline e sai quando a rede voltar.
+  const [guardado, setGuardado] = useState(false);
   const [erro, setErro] = useState(null);
   const [jaAvaliado, setJaAvaliado] = useState(false);
   const [naoInteragi, setNaoInteragi] = useState(false);
@@ -289,6 +298,14 @@ export default function FeedbackFormScreen({ navigation, route }) {
       }
       setEnviado(true);
     } catch (e) {
+      if (e?.enfileirado) {
+        if (!feedbackId) {
+          await concluirFeedback(visitaId).catch(() => {});
+        }
+        setGuardado(true);
+        setEnviado(true);
+        return;
+      }
       // Já avaliado (dedupe RN-12): a pendência desta visita não tem mais o que
       // esperar, então sai da lista da Home. O 404 NÃO remove: ele também vem quando o
       // checkout ainda está na fila offline (visita aberta no servidor), e a pendência
@@ -318,10 +335,12 @@ export default function FeedbackFormScreen({ navigation, route }) {
       <SafeAreaView style={styles.containerCentral}>
         <View style={styles.cardAgradecimento}>
           <Text style={styles.tituloAgradecimento}>
-            {feedbackId ? "Avaliação atualizada!" : "Obrigado pela sua avaliação!"}
+            {tituloAgradecimento(feedbackId, guardado)}
           </Text>
           <Text style={styles.textoAgradecimento}>
-            Sua opinião ajuda a melhorar o atendimento de quem chega a um hospital.
+            {guardado
+              ? "Você está sem internet. A avaliação ficou guardada no celular e será enviada assim que a conexão voltar."
+              : "Sua opinião ajuda a melhorar o atendimento de quem chega a um hospital."}
           </Text>
           <CSButton
             label="Concluir"

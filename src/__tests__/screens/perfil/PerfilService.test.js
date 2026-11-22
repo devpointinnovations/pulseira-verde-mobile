@@ -17,6 +17,7 @@ import LoginService from "../../../screens/auth/service/LoginService";
 // Liga o cliente HTTP ao LoginService (mockado), como o index.js faz no app.
 import "../../../core/api/sessaoApi";
 import { ErroServidorIndisponivel } from "../../../config/http";
+import { itensDaFila } from "../../../config/filaOffline";
 
 jest.mock("../../../screens/auth/service/LoginService");
 
@@ -221,16 +222,21 @@ describe("PerfilService (Épico 05)", () => {
       expect(global.fetch.mock.calls[1][1].headers.Authorization).toBe("Bearer token-novo");
     });
 
-    test("refresh falha por servidor indisponível (cold start) — não desloga, preserva a sessão", async () => {
+    test("refresh falha por servidor indisponível (cold start) — não desloga, preserva a sessão e guarda a decisão", async () => {
       await darSessao("token-velho", "refresh-1");
       global.fetch = jest.fn().mockResolvedValue(respostaJson(401, { message: "expirado" }));
       LoginService.refresh.mockRejectedValue(
         new ErroServidorIndisponivel("https://api.test/api/v1/auth/refresh")
       );
 
-      await expect(
-        PerfilService.atualizarConsentimento({ localizacao: true })
-      ).rejects.toThrow(/indisponível/i);
+      await expect(PerfilService.atualizarConsentimento({ localizacao: true })).resolves.toBeNull();
+
+      const [item] = await itensDaFila();
+      expect(item).toMatchObject({
+        chave: "consentimento:localizacao",
+        tipo: "requisicao",
+        corpo: { method: "PUT", body: { localizacao: true }, repetivel: true },
+      });
 
       expect(LoginService.logout).not.toHaveBeenCalled();
       expect(await TokenStorage.getRefreshToken()).toBe("refresh-1");

@@ -63,6 +63,14 @@ export default function SugerirHospitalScreen({ navigation }) {
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } catch (error) {
+      if (error?.enfileirado) {
+        Alert.alert(
+          "Sugestão guardada",
+          "Você está sem internet. A sugestão ficou guardada no celular e será enviada assim que a conexão voltar.",
+          [{ text: "OK", onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
       Alert.alert("Não foi possível enviar", error.message || "Tente novamente.");
     } finally {
       setSubmitting(false);

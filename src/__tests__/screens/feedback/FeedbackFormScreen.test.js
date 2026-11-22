@@ -193,6 +193,18 @@ describe("FeedbackFormScreen (Épico 03)", () => {
     expect(payload.nota).toBe(5);
   });
 
+  test("sem internet a avaliação fica guardada no celular e sai da lista de pendentes", async () => {
+    FeedbackService.enviar.mockRejectedValue(Object.assign(new Error("sem internet"), { enfileirado: true }));
+    renderizar();
+    ["Pular", "Pular"].forEach((label) => fireEvent.press(screen.getByText(label)));
+    fireEvent.press(screen.getByTestId("star-3"));
+    fireEvent.press(screen.getByText("Enviar avaliação"));
+
+    expect(await screen.findByText("Avaliação guardada")).toBeTruthy();
+    expect(screen.getByText(/será enviada assim que a conexão voltar/)).toBeTruthy();
+    expect(concluirFeedback).toHaveBeenCalledWith("v1");
+  });
+
   test("duplicidade (RN-12): 409 mostra mensagem de já avaliado", async () => {
     FeedbackService.enviar.mockRejectedValue(
       Object.assign(new Error("Você já avaliou esta visita."), { status: 409 })

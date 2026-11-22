@@ -90,7 +90,8 @@ export default function HistoricoScreen({ navigation }) {
   const visitas = historico.data?.visitas || [];
   const feedbacks = historico.data?.feedbacks || [];
   const carregando = !hidratada || (historico.isPending && !semSessao);
-  const erro = historico.isError
+  // Com a cópia guardada no aparelho, a falha de rede não esconde o histórico (offline total).
+  const erro = historico.isError && !historico.data
     ? historico.error?.message || "Não foi possível carregar seu histórico."
     : null;
   const carregar = () => {
