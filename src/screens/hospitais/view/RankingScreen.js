@@ -1,10 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Trophy } from "lucide-react-native";
+import { Info, Trophy } from "lucide-react-native";
 import {
   CSHeader,
-  CSHospitalCard,
   CSEmptyState,
   CSLoadingList,
   CSChip,
@@ -12,10 +11,13 @@ import {
 import { colors, spacing, typography } from "../../../theme/tokens";
 import { useRankingHospitais } from "../hooks/useHospitais";
 import { useAcoesListaPaginada } from "../../../core/query/useAcoesListaPaginada";
+import { CATEGORIA_LABEL, TIPO_LABEL } from "../../../components/CSHospitalCard";
+import { avaliacaoSuficiente } from "../../../utils/indicadores";
+import { formatarDuracao, formatarNota } from "../../../utils/format";
 
 const ORDENS = [
   { value: "NOTA", label: "Melhor nota" },
-  { value: "TEMPO", label: "Menor tempo" },
+  { value: "TEMPO", label: "Menor espera" },
 ];
 
 const TIPO_FILTROS = [
@@ -24,6 +26,40 @@ const TIPO_FILTROS = [
   { value: "PRIVADO", label: "Privado" },
   { value: "FILANTROPICO", label: "Filantrópico" },
 ];
+
+/** Linha do ranking (layout novo): posição, nome, tipo, nota e espera. */
+const LinhaRanking = React.memo(function LinhaRanking({ hospital, posicao, onPress }) {
+  const indicadores = avaliacaoSuficiente(hospital.indicadores) ? hospital.indicadores : null;
+  const tipoLabel = TIPO_LABEL[hospital.tipo] || hospital.tipo || "Hospital";
+  const categoriaLabel = CATEGORIA_LABEL[hospital.categoria] || hospital.categoria;
+  const unidade = typeof hospital.tipoUnidade === "string" && hospital.tipoUnidade.trim() ? hospital.tipoUnidade : null;
+  const espera = indicadores?.tempoMedianoMinutos != null ? formatarDuracao(indicadores.tempoMedianoMinutos) : null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${hospital.nome}, ${categoriaLabel || tipoLabel}`}
+      onPress={() => onPress(hospital)}
+      style={({ pressed }) => [styles.linha, pressed && styles.linhaPressionada]}
+    >
+      <View style={[styles.posicao, posicao === 1 && styles.posicaoPrimeiro]}>
+        <Text style={[styles.posicaoTexto, posicao === 1 && styles.posicaoTextoPrimeiro]}>{posicao}º</Text>
+      </View>
+      <View style={styles.linhaTextos}>
+        <Text style={styles.nome} numberOfLines={1}>
+          {hospital.nome}
+        </Text>
+        <Text style={styles.subtitulo} numberOfLines={1}>
+          {[unidade || categoriaLabel, tipoLabel].filter(Boolean).join(" · ")}
+        </Text>
+      </View>
+      <View style={styles.valores}>
+        <Text style={styles.nota}>{indicadores ? formatarNota(indicadores.notaMedia) : "—"}</Text>
+        {espera ? <Text style={styles.espera}>{espera}</Text> : null}
+      </View>
+    </Pressable>
+  );
+});
 
 /**
  * Ranking público de hospitais (E4-05).
@@ -59,19 +95,9 @@ export default function RankingScreen({ navigation }) {
     [navigation]
   );
 
-  // ARQ-05: mesma correção da HospitaisScreen — o renderItem inline recriava a
-  // navegação por item a cada render, anulando o React.memo do CSHospitalCard.
+  // ARQ-05: renderItem memoizado; a linha recebe o próprio hospital no toque.
   const renderItem = useCallback(
-    ({ item, index }) => (
-      <View style={styles.linha}>
-        <View style={styles.posicao}>
-          <Text style={styles.posicaoTexto}>{index + 1}º</Text>
-        </View>
-        <View style={styles.cardWrapper}>
-          <CSHospitalCard hospital={item} onPress={abrirDetalhe} />
-        </View>
-      </View>
-    ),
+    ({ item, index }) => <LinhaRanking hospital={item} posicao={index + 1} onPress={abrirDetalhe} />,
     [abrirDetalhe]
   );
 
@@ -105,25 +131,28 @@ export default function RankingScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader
-        title="Ranking de hospitais"
-        onBack={navigation?.goBack ? () => navigation.goBack() : undefined}
-      />
+      {(navigation?.getState?.()?.index ?? 0) > 0 ? <CSHeader title="" onBack={() => navigation.goBack()} /> : null}
+      <Text style={styles.titulo} accessibilityRole="header">
+        Ranking
+      </Text>
 
       <View style={styles.filtros}>
-        <View style={styles.chipsRow}>
+        <View style={styles.segmentos} accessibilityRole="tablist">
           {ORDENS.map((o) => (
-            <CSChip
+            <Pressable
               key={o.value}
-              label={o.label}
+              accessibilityRole="tab"
               accessibilityLabel={`Ordenar por ${o.label.toLowerCase()}`}
-              selected={ordem === o.value}
+              accessibilityState={{ selected: ordem === o.value }}
               onPress={() => setOrdem(o.value)}
-            />
+              style={[styles.segmento, ordem === o.value && styles.segmentoAtivo]}
+            >
+              <Text style={[styles.segmentoTexto, ordem === o.value && styles.segmentoTextoAtivo]}>{o.label}</Text>
+            </Pressable>
           ))}
         </View>
 
-        <View style={styles.chipsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {TIPO_FILTROS.map((f) => (
             <CSChip
               key={f.value || "todos"}
@@ -133,9 +162,7 @@ export default function RankingScreen({ navigation }) {
               onPress={() => setTipo(f.value)}
             />
           ))}
-        </View>
-
-        <Text style={styles.legenda}>{legenda}</Text>
+        </ScrollView>
       </View>
 
       {isPending ? (
@@ -147,13 +174,21 @@ export default function RankingScreen({ navigation }) {
           renderItem={renderItem}
           ListEmptyComponent={renderVazio}
           ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator
-                style={styles.rodape}
-                color={colors.primary}
-                accessibilityLabel="Carregando mais hospitais"
-              />
-            ) : null
+            <>
+              {isFetchingNextPage ? (
+                <ActivityIndicator
+                  style={styles.rodape}
+                  color={colors.primary}
+                  accessibilityLabel="Carregando mais hospitais"
+                />
+              ) : null}
+              {dados.length > 0 ? (
+                <View style={styles.legendaLinha}>
+                  <Info size={18} color={colors.onSurfaceVariant} />
+                  <Text style={styles.legenda}>{legenda}</Text>
+                </View>
+              ) : null}
+            </>
           }
           onEndReachedThreshold={0.4}
           onEndReached={carregarMais}
@@ -173,39 +208,70 @@ export default function RankingScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
+  titulo: {
+    ...typography.displayMd,
+    color: colors.onSurface,
+    paddingHorizontal: spacing.s4,
+    paddingTop: spacing.s4,
+    paddingBottom: spacing.s3,
+  },
   filtros: {
     paddingHorizontal: spacing.s4,
     paddingBottom: spacing.s3,
     gap: spacing.s3,
   },
+  segmentos: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: 16,
+    padding: 4,
+  },
+  segmento: { flex: 1, alignItems: "center", paddingVertical: spacing.s3, borderRadius: 12 },
+  segmentoAtivo: { backgroundColor: colors.surfaceContainerLowest },
+  segmentoTexto: { ...typography.titleMd, color: colors.onSurfaceVariant },
+  segmentoTextoAtivo: { color: colors.onSurface },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.s2,
   },
+  legendaLinha: { flexDirection: "row", gap: spacing.s2, paddingTop: spacing.s4 },
   legenda: {
-    ...typography.bodySm,
+    ...typography.bodyMd,
     color: colors.onSurfaceVariant,
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: spacing.s4,
     paddingBottom: spacing.s6,
-    gap: spacing.s4,
     flexGrow: 1,
   },
   linha: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.s3,
+    padding: spacing.s4,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginTop: -1,
   },
+  linhaPressionada: { backgroundColor: colors.surfaceContainerHigh },
   posicao: {
-    minWidth: 32,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceContainerHigh,
   },
-  posicaoTexto: {
-    ...typography.titleMd,
-    color: colors.primary,
-  },
-  cardWrapper: { flex: 1 },
+  posicaoPrimeiro: { backgroundColor: colors.ratingFilled },
+  posicaoTexto: { ...typography.titleMd, color: colors.onSurface },
+  posicaoTextoPrimeiro: { color: colors.onPrimary },
+  linhaTextos: { flex: 1 },
+  nome: { ...typography.titleMd, color: colors.onSurface, fontWeight: "700" },
+  subtitulo: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  valores: { alignItems: "flex-end" },
+  nota: { ...typography.headlineSm, color: colors.onSurface, fontWeight: "800" },
+  espera: { ...typography.bodySm, color: colors.onSurfaceVariant },
   rodape: { paddingVertical: spacing.s4 },
 });

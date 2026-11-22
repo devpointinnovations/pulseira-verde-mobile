@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { MessageSquareText } from "lucide-react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../../core/query/queryKeys";
+import { MessageSquareHeart } from "lucide-react-native";
 import CSButton from "../../../components/CSButton";
-import { colors, radii, shadows, spacing, typography } from "../../../theme/tokens";
+import { colors, spacing, typography } from "../../../theme/tokens";
 import {
   JANELA_MS,
   dispensarFeedback,
@@ -57,9 +59,13 @@ export default function FeedbacksPendentesCard() {
   // tocou "Agora não" não pode trazer a visita de volta.
   const dispensadas = useRef(new Set());
 
+  const cliente = useQueryClient();
   const carregar = useCallback(async () => {
-    const mostrar = (lista) =>
+    const mostrar = (lista) => {
       setPendencias(lista.filter((p) => !dispensadas.current.has(p.visitaId)));
+      // O número na aba Visitas acompanha o que o cartão mostra.
+      void cliente.invalidateQueries({ queryKey: queryKeys.visitas.feedbacksPendentes() });
+    };
     try {
       mostrar(await listarPendencias());
       // Servidor depois: a lista local aparece na hora, e o que só o servidor sabe
@@ -72,7 +78,7 @@ export default function FeedbacksPendentesCard() {
     } catch {
       // Lista é conveniência: falha aqui não pode quebrar a Home.
     }
-  }, []);
+  }, [cliente]);
 
   useFocusEffect(
     useCallback(() => {
@@ -101,6 +107,7 @@ export default function FeedbacksPendentesCard() {
     dispensadas.current.add(pendencia.visitaId);
     setPendencias((atual) => atual.filter((p) => p.visitaId !== pendencia.visitaId));
     await dispensarFeedback(pendencia.visitaId).catch(() => {});
+    void cliente.invalidateQueries({ queryKey: queryKeys.visitas.feedbacksPendentes() });
   };
 
   if (pendencias.length === 0) {
@@ -110,47 +117,42 @@ export default function FeedbacksPendentesCard() {
   return (
     <View style={styles.card} accessibilityRole="summary">
       <View style={styles.cabecalho}>
-        <MessageSquareText
-          size={20}
-          color={colors.primary}
+        <MessageSquareHeart
+          size={22}
+          color={colors.onWarning}
           importantForAccessibility="no"
           accessibilityElementsHidden
         />
         <Text style={styles.titulo} accessibilityRole="header">
-          {pendencias.length === 1 ? "Avaliação pendente" : `${pendencias.length} avaliações pendentes`}
+          {pendencias.length === 1 ? "Falta avaliar" : `Faltam ${pendencias.length} avaliações`}
         </Text>
       </View>
-      <Text style={styles.subtitulo}>
-        Ainda dá tempo de contar como foi. Leva menos de 1 minuto.
-      </Text>
 
-      {pendencias.map((pendencia) => {
+      {pendencias.map((pendencia, indice) => {
         const nome = pendencia.hospitalNome || "Sua visita";
         const prazo = descreverPrazo(pendencia.saidaEm);
         return (
-          <View key={pendencia.visitaId} style={styles.item}>
+          <View key={pendencia.visitaId} style={[styles.item, indice > 0 && styles.itemSeguinte]}>
             <Text style={styles.hospital} numberOfLines={2}>
               {nome}
             </Text>
-            {prazo ? <Text style={styles.prazo}>Responda até {prazo}</Text> : null}
-            <View style={styles.acoes}>
-              <CSButton
-                label="Avaliar"
-                variant="primary"
-                accessibilityLabel={`Avaliar ${nome}`}
-                onPress={() => avaliar(pendencia)}
-                style={styles.botaoAvaliar}
-              />
-              <Pressable
-                onPress={() => dispensar(pendencia)}
-                accessibilityRole="button"
-                accessibilityLabel={`Agora não, dispensar avaliação de ${nome}`}
-                hitSlop={8}
-                style={styles.botaoDispensar}
-              >
-                <Text style={styles.textoDispensar}>Agora não</Text>
-              </Pressable>
-            </View>
+            {prazo ? <Text style={styles.prazo}>Dá para responder até {prazo}</Text> : null}
+            <CSButton
+              label="Avaliar agora"
+              variant="primary"
+              accessibilityLabel={`Avaliar ${nome}`}
+              onPress={() => avaliar(pendencia)}
+              style={styles.botaoAvaliar}
+            />
+            <Pressable
+              onPress={() => dispensar(pendencia)}
+              accessibilityRole="button"
+              accessibilityLabel={`Agora não, dispensar avaliação de ${nome}`}
+              hitSlop={8}
+              style={styles.botaoDispensar}
+            >
+              <Text style={styles.textoDispensar}>Agora não</Text>
+            </Pressable>
           </View>
         );
       })}
@@ -161,58 +163,45 @@ export default function FeedbacksPendentesCard() {
 const styles = StyleSheet.create({
   card: {
     width: "100%",
-    backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radii.lg,
+    backgroundColor: colors.warningBg,
+    borderRadius: 22,
     padding: spacing.s4,
     marginBottom: spacing.s5,
-    ...shadows.cloud1,
   },
   cabecalho: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.s2,
-    marginBottom: spacing.s1,
   },
   titulo: {
     ...typography.titleMd,
-    color: colors.onSurface,
+    color: colors.onWarning,
+    fontWeight: "700",
   },
-  subtitulo: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing.s3,
-  },
-  item: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+  item: { marginTop: spacing.s2 },
+  itemSeguinte: {
+    borderTopWidth: 1,
     borderTopColor: colors.outlineVariant,
     paddingTop: spacing.s3,
-    marginTop: spacing.s2,
+    marginTop: spacing.s3,
   },
   hospital: {
-    ...typography.labelLg,
+    ...typography.headlineSm,
     color: colors.onSurface,
   },
   prazo: {
-    ...typography.bodySm,
+    ...typography.bodyMd,
     color: colors.onSurfaceVariant,
     marginTop: spacing.s1,
   },
-  acoes: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.s4,
-    marginTop: spacing.s3,
-  },
-  botaoAvaliar: {
-    flex: 1,
-  },
+  botaoAvaliar: { marginTop: spacing.s3 },
   botaoDispensar: {
-    minHeight: 48,
+    minHeight: 44,
+    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.s2,
   },
   textoDispensar: {
     ...typography.labelLg,
-    color: colors.primary,
+    color: colors.onWarning,
   },
 });

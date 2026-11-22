@@ -12,6 +12,7 @@ import { renderComProviders } from "../../helpers/renderComProviders";
 import { definirUsuarioDaSessao, sessaoStore } from "../../../core/stores/sessaoStore";
 import HistoricoScreen from "../../../screens/perfil/view/HistoricoScreen";
 import PerfilService from "../../../screens/perfil/service/PerfilService";
+import * as FeedbackNotificationService from "../../../screens/feedback/service/FeedbackNotificationService";
 import VisitaService from "../../../screens/visitas/service/VisitaService";
 import FeedbackService from "../../../screens/feedback/service/FeedbackService";
 
@@ -20,6 +21,7 @@ jest.mock("../../../screens/visitas/service/VisitaService");
 jest.mock("../../../screens/feedback/service/FeedbackService");
 
 jest.mock("@react-navigation/native", () => ({
+  useNavigation: () => ({ navigate: jest.fn() }),
   useFocusEffect: (callback) => {
     const React = require("react");
     React.useEffect(() => {
@@ -101,7 +103,34 @@ describe("HistoricoScreen (E5-03/RN-22)", () => {
     expect(screen.getByText(/Faça login para ver seu histórico/i)).toBeTruthy();
 
     fireEvent.press(screen.getByText("Fazer login"));
-    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Login");
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Perfil", { screen: "Login" });
+  });
+
+  test("como raiz da aba Visitas não mostra Voltar; aberta por cima de outra tela, mostra", async () => {
+    definirUsuarioDaSessao(null);
+
+    renderizar();
+    expect(await screen.findByText("Suas visitas")).toBeTruthy();
+    expect(screen.queryByLabelText("Voltar")).toBeNull();
+
+    const goBack = jest.fn();
+    renderComProviders(<HistoricoScreen navigation={{ ...NAVEGACAO, goBack, getState: () => ({ index: 1 }) }} />);
+    fireEvent.press(await screen.findByLabelText("Voltar"));
+    expect(goBack).toHaveBeenCalled();
+  });
+
+  test("sem conta também mostra a avaliação pendente (visita anônima)", async () => {
+    definirUsuarioDaSessao(null);
+    jest.spyOn(FeedbackNotificationService, "listarPendencias").mockResolvedValue([
+      { visitaId: "v9", hospitalNome: "UPA Ceilândia", saidaEm: new Date().toISOString() },
+    ]);
+    jest.spyOn(FeedbackNotificationService, "sincronizarPendenciasDoServidor").mockResolvedValue(undefined);
+
+    renderizar();
+
+    expect(await screen.findByText("UPA Ceilândia")).toBeTruthy();
+    expect(screen.getByText("Área logada")).toBeTruthy();
+    jest.restoreAllMocks();
   });
 
   test("lista as visitas do usuário com o nome do hospital", async () => {
@@ -124,9 +153,21 @@ describe("HistoricoScreen (E5-03/RN-22)", () => {
 
     renderizar();
     expect(await screen.findByText("Hospital Central")).toBeTruthy();
-    expect(screen.getByText("Finalizada")).toBeTruthy();
+    expect(screen.getByText("Finalizada · Automática")).toBeTruthy();
     expect(screen.getByText(/1h30 de permanência/)).toBeTruthy();
-    expect(screen.getByText("Automática")).toBeTruthy();
+    expect(screen.getByText("sem nota")).toBeTruthy();
+  });
+
+  test("a visita avaliada mostra a nota que a pessoa deu", async () => {
+    definirUsuarioDaSessao({ id: "u1", nome: "Marina" });
+    VisitaService.listarHistorico.mockResolvedValue({
+      content: [{ id: "v1", hospitalNome: "Hospital Central", entrada: "2026-08-30T10:00:00Z", status: "FINALIZADA", origem: "MANUAL" }],
+    });
+    FeedbackService.listarHistorico.mockResolvedValue({ content: [{ id: "f1", visitaId: "v1", nota: 4 }] });
+
+    renderizar();
+    expect(await screen.findByText("4,0")).toBeTruthy();
+    expect(screen.queryByText("sem nota")).toBeNull();
   });
 
   test("alterna para a aba de avaliações e lista os feedbacks", async () => {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Download, History, MessageSquareText, Pencil, Star } from "lucide-react-native";
+import { Download, History, Hospital, MessageSquareText, Pencil, Star } from "lucide-react-native";
 import CSHeader from "../../../components/CSHeader";
 import CSButton from "../../../components/CSButton";
 import CSEmptyState from "../../../components/CSEmptyState";
@@ -10,6 +10,7 @@ import { CSLoadingList } from "../../../components/CSLoading";
 import VisitaService from "../../visitas/service/VisitaService";
 import FeedbackService from "../../feedback/service/FeedbackService";
 import PerfilService from "../service/PerfilService";
+import FeedbacksPendentesCard from "../../feedback/view/FeedbacksPendentesCard";
 import { useSessao } from "../../../core/stores/sessaoStore";
 import { queryKeys } from "../../../core/query/queryKeys";
 import { useRecarregarNoFoco } from "../../../core/query/useRecarregarNoFoco";
@@ -97,7 +98,7 @@ export default function HistoricoScreen({ navigation }) {
     void refetch();
   };
 
-  const irParaLogin = () => navigation?.navigate?.("Login");
+  const irParaLogin = () => navigation?.navigate?.("Perfil", { screen: "Login" });
 
   /**
    * E5-03: baixa o relatório de dados pessoais em PDF. Quando o dispositivo não
@@ -122,36 +123,41 @@ export default function HistoricoScreen({ navigation }) {
     }
   };
 
-  const renderItemVisita = ({ item }) => (
-    <View style={styles.itemCard}>
-      <View style={styles.itemIconRow}>
-        <View style={styles.itemIconCircle}>
-          <Building2 size={18} color={colors.primary} />
-        </View>
-        <Text style={styles.itemTitle} numberOfLines={1}>
-          {item.hospitalNome || "Hospital"}
-        </Text>
-      </View>
-
-      <Text style={styles.itemDate}>
-        {formatarData(item.entrada)}
-        {item.saida ? ` · ${formatarDuracao(item.duracaoMinutos)} de permanência` : ""}
-      </Text>
-
-      <View style={styles.chipsRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            {STATUS_LABEL[item.status] || item.status}
-          </Text>
-        </View>
-        <View style={[styles.badge, styles.badgeSecondary]}>
-          <Text style={styles.badgeTextSecondary}>
-            {ORIGEM_LABEL[item.origem] || item.origem}
-          </Text>
-        </View>
-      </View>
-    </View>
+  // Nota que a pessoa deu em cada visita, para a linha da visita mostrar como no desenho.
+  const notaPorVisita = new Map(
+    feedbacks.filter((f) => typeof f.nota === "number").map((f) => [f.visitaId, f.nota])
   );
+
+  const renderItemVisita = ({ item }) => {
+    const nota = notaPorVisita.get(item.id);
+    return (
+      <View style={styles.itemCard}>
+        <View style={styles.itemIconCircle}>
+          <Hospital size={22} color={colors.primary} />
+        </View>
+        <View style={styles.itemTextos}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {item.hospitalNome || "Hospital"}
+          </Text>
+          <Text style={styles.itemDate}>
+            {formatarData(item.entrada)}
+            {item.saida ? ` · ${formatarDuracao(item.duracaoMinutos)} de permanência` : ""}
+          </Text>
+          <Text style={styles.itemDetalhe}>
+            {STATUS_LABEL[item.status] || item.status} · {ORIGEM_LABEL[item.origem] || item.origem}
+          </Text>
+        </View>
+        {nota === undefined ? (
+          <Text style={styles.semNota}>sem nota</Text>
+        ) : (
+          <View style={styles.notaRow}>
+            <Star size={16} color={colors.ratingFilled} fill={colors.ratingFilled} />
+            <Text style={styles.notaVisita}>{nota.toFixed(1).replace(".", ",")}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const editarAvaliacao = (item) =>
     navigation?.navigate?.("Feedback", {
@@ -165,17 +171,18 @@ export default function HistoricoScreen({ navigation }) {
     });
 
   const renderItemFeedback = ({ item }) => (
-    <View style={styles.itemCard}>
+    <View style={[styles.itemCard, styles.itemCardColuna]}>
       <View style={styles.itemIconRow}>
         <View style={styles.itemIconCircle}>
-          <MessageSquareText size={18} color={colors.primary} />
+          <MessageSquareText size={22} color={colors.primary} />
         </View>
-        <Text style={styles.itemTitle} numberOfLines={2}>
-          {item.hospitalNome || "Hospital"}
-        </Text>
+        <View style={styles.itemTextos}>
+          <Text style={styles.itemTitle} numberOfLines={2}>
+            {item.hospitalNome || "Hospital"}
+          </Text>
+          <Text style={styles.itemDate}>Avaliação de {formatarData(item.criadoEm)}</Text>
+        </View>
       </View>
-
-      <Text style={styles.itemDate}>Avaliação de {formatarData(item.criadoEm)}</Text>
 
       <View style={styles.feedbackMeta}>
         {typeof item.nota === "number" ? (
@@ -233,10 +240,27 @@ export default function HistoricoScreen({ navigation }) {
     );
   };
 
+  const cabecalho = (
+    <>
+      {(navigation?.getState?.()?.index ?? 0) > 0 ? <CSHeader title="" onBack={() => navigation.goBack()} /> : null}
+      <Text style={styles.titulo} accessibilityRole="header">
+        Suas visitas
+      </Text>
+    </>
+  );
+  // Avaliações que ainda cabem na janela de 24h (RN-09), com ou sem conta: a visita
+  // anônima também gera avaliação pendente. É o "Falta avaliar" do novo layout.
+  const pendentes = (
+    <View style={styles.pendentes}>
+      <FeedbacksPendentesCard />
+    </View>
+  );
+
   if (semSessao) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <CSHeader title="Histórico" onBack={() => navigation?.goBack?.()} />
+        {cabecalho}
+        {pendentes}
         <View style={styles.semAcessoContainer}>
           <CSEmptyState
             icon={History}
@@ -252,7 +276,9 @@ export default function HistoricoScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader title="Histórico" onBack={() => navigation?.goBack?.()} />
+      {cabecalho}
+
+      {pendentes}
 
       <View style={styles.segmentContainer}>
         {[
@@ -322,64 +348,68 @@ export default function HistoricoScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  pendentes: { paddingHorizontal: spacing.s4 },
   safe: { flex: 1, backgroundColor: colors.surface },
   semAcessoContainer: { flex: 1, justifyContent: "center" },
 
+  titulo: {
+    ...typography.displayMd,
+    color: colors.onSurface,
+    paddingHorizontal: spacing.s4,
+    paddingTop: spacing.s4,
+    paddingBottom: spacing.s4,
+  },
   segmentContainer: {
     flexDirection: "row",
-    gap: spacing.s2,
-    paddingHorizontal: spacing.s4,
-    paddingVertical: spacing.s3,
+    marginHorizontal: spacing.s4,
+    marginBottom: spacing.s3,
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceContainerHigh,
   },
   segment: {
     flex: 1,
     alignItems: "center",
     paddingVertical: spacing.s3,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceContainerHigh,
-    minHeight: 48,
+    borderRadius: 12,
+    minHeight: 44,
     justifyContent: "center",
   },
-  segmentAtivo: { backgroundColor: colors.primary },
-  segmentText: { ...typography.labelLg, color: colors.onSurfaceVariant },
-  segmentTextAtivo: { color: colors.onPrimary },
+  segmentAtivo: { backgroundColor: colors.surfaceContainerLowest },
+  segmentText: { ...typography.titleMd, color: colors.onSurfaceVariant },
+  segmentTextAtivo: { color: colors.onSurface },
 
   listContent: {
     paddingHorizontal: spacing.s4,
     paddingBottom: spacing.s6,
-    gap: spacing.s3,
     flexGrow: 1,
   },
   itemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.s3,
     backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radii.lg,
     padding: spacing.s4,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-    gap: spacing.s2,
+    marginTop: -1,
   },
-  itemIconRow: { flexDirection: "row", alignItems: "center", gap: spacing.s2 },
+  itemCardColuna: { flexDirection: "column", alignItems: "stretch", gap: spacing.s2 },
+  itemIconRow: { flexDirection: "row", alignItems: "center", gap: spacing.s3 },
   itemIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceContainer,
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    backgroundColor: colors.primaryContainer,
     alignItems: "center",
     justifyContent: "center",
   },
-  itemTitle: { ...typography.titleMd, color: colors.onSurface, flex: 1 },
-  itemDate: { ...typography.bodySm, color: colors.onSurfaceVariant },
-
-  chipsRow: { flexDirection: "row", gap: spacing.s2, flexWrap: "wrap", marginTop: spacing.s1 },
-  badge: {
-    backgroundColor: colors.primaryContainer,
-    borderRadius: radii.xs,
-    paddingHorizontal: spacing.s2,
-    paddingVertical: 3,
-  },
-  badgeText: { color: colors.onPrimaryContainer, ...typography.labelMd, fontWeight: "700" },
-  badgeSecondary: { backgroundColor: colors.surfaceContainerHigh },
-  badgeTextSecondary: { color: colors.onSurfaceVariant, ...typography.labelMd, fontWeight: "700" },
+  itemTextos: { flex: 1 },
+  itemTitle: { ...typography.titleMd, color: colors.onSurface, fontWeight: "700" },
+  itemDate: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  itemDetalhe: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  semNota: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  notaVisita: { ...typography.titleLg, color: colors.onSurface, fontWeight: "700" },
 
   exportContainer: {
     paddingHorizontal: spacing.s4,

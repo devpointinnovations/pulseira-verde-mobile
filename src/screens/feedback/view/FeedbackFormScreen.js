@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Star } from "lucide-react-native";
+import { Star, X } from "lucide-react-native";
 import CSChip from "../../../components/CSChip";
 import CSButton from "../../../components/CSButton";
 import CSTextField from "../../../components/CSTextField";
+import CSIconButton from "../../../components/CSIconButton";
 import { colors, radii, spacing, typography } from "../../../theme/tokens";
 import { useEnviarFeedback } from "../hooks/useEnviarFeedback";
 import { concluirFeedback } from "../service/FeedbackNotificationService";
@@ -146,7 +147,7 @@ const OpcoesFezTriagem = ({ valor, aoSelecionar, rotulo, opcoes = OPCOES_SIM_NAO
 );
 
 /** Estrelas interativas para `nota` e `tratamentoEquipe` (1–5). */
-function Estrelas({ valor, aoSelecionar, tamanho = 36, testIDPrefix = "star" }) {
+function Estrelas({ valor, aoSelecionar, tamanho = 44, testIDPrefix = "star" }) {
   return (
     <View style={styles.estrelas} accessibilityRole="adjustable" accessibilityLabel="Avaliação por estrelas">
       {[1, 2, 3, 4, 5].map((nota) => (
@@ -235,10 +236,6 @@ export default function FeedbackFormScreen({ navigation, route }) {
 
   const passo = etapasDaVez[etapa];
   const ultimoPasso = etapa === etapasDaVez.length - 1;
-  const progresso = useMemo(
-    () => ((etapa + 1) / etapasDaVez.length) * 100,
-    [etapa, etapasDaVez.length]
-  );
 
   /** Sugestões do select searchable de especialidade (RN-10), máx. 6. */
   const sugestoesEspecialidades = useMemo(() => {
@@ -491,16 +488,30 @@ export default function FeedbackFormScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.hospital}>{hospitalNome || "Sua visita"}</Text>
-        <Text style={styles.etapaIndice}>
-          Etapa {etapa + 1} de {etapasDaVez.length}
-        </Text>
-        <View style={styles.barraProgresso}>
-          <View style={[styles.barraPreenchida, { width: `${progresso}%` }]} />
+        <View style={styles.barraTopo}>
+          <CSIconButton icon={X} color={colors.onSurface} onPress={() => navigation.goBack()} accessibilityLabel="Fechar" />
+          <Text style={styles.hospital} numberOfLines={1}>
+            {hospitalNome || "Sua visita"}
+          </Text>
+          {ultimoPasso ? (
+            <View style={styles.pularEspaco} />
+          ) : (
+            <Pressable accessibilityRole="button" onPress={pular} hitSlop={12} style={styles.pularEspaco}>
+              <Text style={styles.pular}>Pular</Text>
+            </Pressable>
+          )}
+        </View>
+        <View style={styles.segmentos}>
+          {etapasDaVez.map((item, indice) => (
+            <View key={item.chave} style={[styles.segmento, indice <= etapa && styles.segmentoFeito]} />
+          ))}
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.conteudo}>
+        <Text style={styles.etapaIndice}>
+          Etapa {etapa + 1} de {etapasDaVez.length}
+        </Text>
         <Text style={styles.titulo}>{passo.titulo}</Text>
         <Text style={styles.descricao}>{passo.descricao}</Text>
         {erro ? <Text style={styles.erro}>{erro}</Text> : null}
@@ -508,16 +519,13 @@ export default function FeedbackFormScreen({ navigation, route }) {
       </ScrollView>
 
       <View style={styles.rodape}>
-        {!ultimoPasso ? (
-          <CSButton label="Pular" variant="tertiary" onPress={pular} style={styles.botaoPular} />
-        ) : null}
         <CSButton
           label={ultimoPasso ? (feedbackId ? "Salvar alterações" : "Enviar avaliação") : "Continuar"}
           variant="primary"
           onPress={avancar}
           loading={enviando}
-          style={styles.botaoContinuar}
         />
+        <Text style={styles.rodapeTexto}>Anônimo. Você pode mudar a resposta por 15 dias.</Text>
       </View>
     </SafeAreaView>
   );
@@ -556,54 +564,55 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   header: {
-    paddingHorizontal: spacing.s4,
-    paddingTop: spacing.s4,
+    paddingHorizontal: spacing.s2,
+    paddingTop: spacing.s2,
     paddingBottom: spacing.s3,
   },
+  barraTopo: { flexDirection: "row", alignItems: "center" },
   hospital: {
     ...typography.titleMd,
     color: colors.onSurfaceVariant,
+    flex: 1,
+    textAlign: "center",
   },
-  etapaIndice: {
-    ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-    marginTop: spacing.s1,
-  },
-  barraProgresso: {
-    height: 6,
-    borderRadius: radii.full,
-    backgroundColor: colors.surfaceVariant,
-    marginTop: spacing.s2,
-    overflow: "hidden",
-  },
-  barraPreenchida: {
-    height: "100%",
-    borderRadius: radii.full,
-    backgroundColor: colors.primary,
-  },
+  pularEspaco: { width: 64, alignItems: "flex-end", paddingRight: spacing.s2 },
+  pular: { ...typography.titleMd, color: colors.primary, fontWeight: "700" },
+  segmentos: { flexDirection: "row", gap: spacing.s2, paddingHorizontal: spacing.s2, marginTop: spacing.s2 },
+  segmento: { flex: 1, height: 5, borderRadius: radii.full, backgroundColor: colors.outlineVariant },
+  segmentoFeito: { backgroundColor: colors.primary },
   conteudo: {
     padding: spacing.s4,
+    paddingTop: spacing.s6,
     paddingBottom: spacing.s12,
     gap: spacing.s2,
   },
+  etapaIndice: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: "center",
+  },
   titulo: {
-    ...typography.headlineMd,
+    ...typography.displaySm,
     color: colors.onSurface,
+    textAlign: "center",
   },
   descricao: {
     ...typography.bodyMd,
     color: colors.onSurfaceVariant,
     marginBottom: spacing.s2,
+    textAlign: "center",
   },
   pergunta: {
     ...typography.titleMd,
     color: colors.onSurface,
     marginTop: spacing.s4,
     marginBottom: spacing.s2,
+    textAlign: "center",
   },
   opcoes: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "center",
     gap: spacing.s2,
   },
   sugestoes: {
@@ -614,6 +623,7 @@ const styles = StyleSheet.create({
   },
   estrelas: {
     flexDirection: "row",
+    justifyContent: "center",
     gap: spacing.s2,
     marginVertical: spacing.s2,
   },
@@ -621,8 +631,9 @@ const styles = StyleSheet.create({
     padding: spacing.s1,
   },
   rotuloEstrela: {
-    ...typography.bodySm,
-    color: colors.tertiary,
+    ...typography.headlineSm,
+    color: colors.onWarning,
+    textAlign: "center",
   },
   erro: {
     ...typography.bodyMd,
@@ -630,18 +641,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.s2,
   },
   rodape: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: spacing.s2,
     padding: spacing.s4,
     borderTopWidth: 1,
     borderTopColor: colors.outlineVariant,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.surface,
   },
-  botaoPular: {
-    flexShrink: 0,
-  },
-  botaoContinuar: {
-    flex: 1,
-  },
+  rodapeTexto: { ...typography.bodySm, color: colors.onSurfaceVariant, textAlign: "center" },
 });
