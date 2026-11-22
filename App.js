@@ -196,7 +196,8 @@ export default function App() {
     const [telaInicial, setTelaInicial] = useState(null);
 
     useEffect(() => {
-        onboardingConcluido().then((concluido) => setTelaInicial(concluido ? "Tabs" : "Onboarding"));
+        // `onboardingConcluido` não rejeita: falha na leitura conta como concluída.
+        void onboardingConcluido().then((concluido) => setTelaInicial(concluido ? "Tabs" : "Onboarding"));
     }, []);
 
     const abrirFeedback = useCallback((params) => {
