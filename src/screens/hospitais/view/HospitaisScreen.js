@@ -2,16 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   FlatList,
+  Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { Map as MapIcon, MapPinOff, Search } from "lucide-react-native";
+import { Map as MapIcon, MapPinOff, Search, Timer } from "lucide-react-native";
 import {
-  CSHeader,
   CSHospitalCard,
   CSEmptyState,
   CSLoadingList,
@@ -28,6 +29,7 @@ import {
 import { useCheckinManual } from "../../visitas/hooks/useMutacoesVisita";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
 import { avisarSemConexao } from "../../../utils/alertas";
+import { duracaoMinutosDesde } from "../../../utils/format";
 
 const TIPO_FILTROS = [
   { value: "", label: "Todos" },
@@ -35,6 +37,44 @@ const TIPO_FILTROS = [
   { value: "PRIVADO", label: "Privado" },
   { value: "FILANTROPICO", label: "Filantrópico" },
 ];
+
+/**
+ * Aviso da visita em andamento no topo do Início (layout novo). Os minutos se atualizam
+ * sozinhos; o toque abre a tela da visita.
+ */
+function AvisoVisita({ visita, hospitalNome, onPress }) {
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setAgora(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+  const minutos = duracaoMinutosDesde(visita.entrada, agora);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Visita em andamento${hospitalNome ? ` em ${hospitalNome}` : ""}`}
+      onPress={onPress}
+      style={styles.aviso}
+    >
+      <View style={styles.avisoIcone}>
+        <Timer size={22} color={colors.onPrimary} />
+      </View>
+      <View style={styles.avisoTextos}>
+        <Text style={styles.avisoRotulo}>Visita em andamento</Text>
+        <Text style={styles.avisoHospital} numberOfLines={1}>
+          {hospitalNome || "Hospital"}
+        </Text>
+      </View>
+      {minutos === undefined ? null : (
+        <Text style={styles.avisoMinutos}>
+          {minutos}
+          <Text style={styles.avisoMin}> min</Text>
+        </Text>
+      )}
+    </Pressable>
+  );
+}
 
 /**
  * Listagem pública de hospitais ativos (E1-03).
@@ -252,26 +292,42 @@ export default function HospitaisScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader
-        title="Hospitais"
-        rightAction={
+      <View style={styles.searchArea}>
+        <View style={styles.buscaLinha}>
+          <View style={styles.buscaCampo}>
+            <CSTextField
+              value={busca}
+              onChangeText={setBusca}
+              placeholder="Buscar hospital ou UPA"
+              icon={Search}
+            />
+          </View>
           <CSIconButton
             icon={MapIcon}
+            color={colors.primary}
             onPress={() => navigation.navigate("MapaTela")}
             accessibilityLabel="Ver hospitais no mapa"
           />
-        }
-      />
+        </View>
 
-      <View style={styles.searchArea}>
-        <CSTextField
-          value={busca}
-          onChangeText={setBusca}
-          placeholder="Buscar hospital por nome"
-          icon={Search}
-        />
+        {visitaAtiva ? (
+          <AvisoVisita
+            visita={visitaAtiva}
+            hospitalNome={hospitalCheckinAtivo?.nome}
+            onPress={() => navigation.navigate("VisitaEmAndamento")}
+          />
+        ) : null}
 
-        <View style={styles.chipsRow}>
+        <View style={styles.tituloLinha}>
+          <Text style={styles.titulo} accessibilityRole="header">
+            Perto de você
+          </Text>
+          <Pressable accessibilityRole="link" onPress={() => navigation.navigate("Ranking")} hitSlop={12}>
+            <Text style={styles.verRanking}>Ver ranking</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {TIPO_FILTROS.map((f) => (
             <CSChip
               key={f.value || "todos"}
@@ -280,7 +336,7 @@ export default function HospitaisScreen({ navigation }) {
               onPress={() => setTipo(f.value)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {semIndicadores ? (
@@ -320,11 +376,41 @@ const styles = StyleSheet.create({
     padding: spacing.s4,
     gap: spacing.s3,
   },
+  buscaLinha: { flexDirection: "row", alignItems: "center", gap: spacing.s2 },
+  buscaCampo: { flex: 1 },
+  tituloLinha: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.s1,
+  },
+  titulo: { ...typography.headlineMd, color: colors.onSurface },
+  verRanking: { ...typography.labelLg, color: colors.primary },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.s2,
   },
+  aviso: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.s3,
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    padding: spacing.s4,
+  },
+  avisoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avisoTextos: { flex: 1 },
+  avisoRotulo: { ...typography.bodySm, color: colors.onPrimary, opacity: 0.9 },
+  avisoHospital: { ...typography.titleMd, color: colors.onPrimary, fontWeight: "700" },
+  avisoMinutos: { fontSize: 28, lineHeight: 34, fontWeight: "800", color: colors.onPrimary },
+  avisoMin: { ...typography.bodyMd, color: colors.onPrimary },
   listContent: {
     paddingHorizontal: spacing.s4,
     paddingBottom: spacing.s6,

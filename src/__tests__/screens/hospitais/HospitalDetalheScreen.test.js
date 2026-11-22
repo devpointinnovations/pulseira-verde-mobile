@@ -253,7 +253,7 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
 
     await act(async () => {});
 
-    expect(warn).toHaveBeenCalledWith("HospitalDetalheScreen: falha ao agendar o feedback", "disco cheio");
+    expect(warn).toHaveBeenCalledWith("useEncerrarVisitaManual: falha ao agendar o feedback", "disco cheio");
     await waitFor(() => expect(screen.queryByText("Check-in manual ativo")).toBeNull());
     warn.mockRestore();
   });
