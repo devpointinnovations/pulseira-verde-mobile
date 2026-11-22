@@ -60,11 +60,22 @@ describe("RankingScreen (E4-05)", () => {
     expect(screen.getByText("2º")).toBeTruthy();
   });
 
+  test("como raiz da aba Ranking não mostra Voltar; empilhada, volta para a tela anterior", async () => {
+    renderizar();
+    await screen.findByText("Hospital Alfa");
+    expect(screen.queryByLabelText("Voltar")).toBeNull();
+
+    const goBack = jest.fn();
+    renderComProviders(<RankingScreen navigation={{ ...NAVEGACAO, goBack, getState: () => ({ index: 1 }) }} />);
+    fireEvent.press(await screen.findByLabelText("Voltar"));
+    expect(goBack).toHaveBeenCalled();
+  });
+
   test("alternar para 'Menor tempo' recarrega o ranking com ordem TEMPO", async () => {
     renderizar();
     await screen.findByText("Hospital Alfa");
 
-    fireEvent.press(screen.getByLabelText("Ordenar por menor tempo"));
+    fireEvent.press(screen.getByLabelText("Ordenar por menor espera"));
 
     await waitFor(() => {
       expect(HospitalService.ranking).toHaveBeenLastCalledWith({

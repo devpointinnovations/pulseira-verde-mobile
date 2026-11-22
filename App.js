@@ -5,9 +5,8 @@ import {NavigationContainer} from "@react-navigation/native";
 import {SafeAreaProvider, useSafeAreaInsets} from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as Network from "expo-network";
-import {AppState} from "react-native";
-import {Building2, Home as HomeIcon, Map as MapIcon, User as UserIcon} from "lucide-react-native";
-import HomeScreen from "./src/screens/home/view/HomeScreen.js";
+import {AppState, StyleSheet, View} from "react-native";
+import {ClipboardList, MapPin, Trophy, User as UserIcon} from "lucide-react-native";
 import LoginScreen from "./src/screens/auth/view/LoginScreen.js";
 import EsqueciSenhaScreen from "./src/screens/auth/view/EsqueciSenhaScreen.js";
 import ConfirmarEmailScreen from "./src/screens/auth/view/ConfirmarEmailScreen.js";
@@ -17,6 +16,8 @@ import HospitaisScreen from "./src/screens/hospitais/view/HospitaisScreen.js";
 import HospitalDetalheScreen from "./src/screens/hospitais/view/HospitalDetalheScreen.js";
 import RankingScreen from "./src/screens/hospitais/view/RankingScreen.js";
 import SugerirHospitalScreen from "./src/screens/hospitais/view/SugerirHospitalScreen.js";
+import { useQuantidadeFeedbacksPendentes } from "./src/screens/feedback/hooks/useFeedbacksPendentes.js";
+import VisitaEmAndamentoScreen from "./src/screens/visitas/view/VisitaEmAndamentoScreen.js";
 import FeedbackFormScreen from "./src/screens/feedback/view/FeedbackFormScreen.js";
 import PerfilScreen from "./src/screens/perfil/view/PerfilScreen.js";
 import HistoricoScreen from "./src/screens/perfil/view/HistoricoScreen.js";
@@ -37,41 +38,33 @@ import { onboardingConcluido } from "./src/screens/onboarding/service/Onboarding
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Stack da aba Início (E6-01): tela de apresentação do app; o check-in manual vive na
-// lista Hospitais e o mapa é uma aba própria ("Mapa"). A visita ativa (geofencing e
-// heartbeat) é acompanhada pelo `VisitaAtivaSync`, na raiz.
-function HomeStack() {
-    return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Home" component={HomeScreen} />
-        </Stack.Navigator>
-    );
-}
-
-// Stack da aba Hospitais (Épico 01 — CRUD/geofence, listagem pública, sugestões).
-function HospitaisStack() {
+// Abas do novo layout (Início, Ranking, Visitas, Perfil). Cada aba tem a sua pilha, para
+// que voltar do detalhe do hospital pouse na aba de onde o usuário veio (F-07, PO 10/09).
+function InicioStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="HospitaisLista" component={HospitaisScreen} />
+            <Stack.Screen name="MapaTela" component={GeoLocalizacaoScreen} />
             <Stack.Screen name="HospitalDetalhe" component={HospitalDetalheScreen} />
-            <Stack.Screen name="Ranking" component={RankingScreen} />
             <Stack.Screen name="SugerirHospital" component={SugerirHospitalScreen} />
+            <Stack.Screen name="VisitaEmAndamento" component={VisitaEmAndamentoScreen} />
         </Stack.Navigator>
     );
 }
 
-// Stack da aba Mapa (F-07): pilha própria, no mesmo padrão da aba Hospitais.
-// Sem isso, abrir o detalhe do hospital a partir de um pino do mapa navegava para
-// dentro da pilha da aba Hospitais (`navigation.navigate("Hospitais", { screen:
-// "HospitalDetalhe" })`) — voltar pousava na lista de Hospitais, não no mapa de
-// onde o usuário veio. Relatado pelo PO em uso real (10/09/2026): "não consigo
-// retornar para a aba de mapas", enquanto o mesmo fluxo pela lista já funcionava
-// (HospitalDetalhe já vivia dentro da própria pilha da aba Hospitais).
-function MapaStack() {
+function RankingStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="MapaTela" component={GeoLocalizacaoScreen} />
+            <Stack.Screen name="RankingTela" component={RankingScreen} />
             <Stack.Screen name="HospitalDetalhe" component={HospitalDetalheScreen} />
+        </Stack.Navigator>
+    );
+}
+
+function VisitasStack() {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Historico" component={HistoricoScreen} />
         </Stack.Navigator>
     );
 }
@@ -81,7 +74,6 @@ function PerfilStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Perfil" component={PerfilScreen} />
-            <Stack.Screen name="Historico" component={HistoricoScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="EsqueciSenha" component={EsqueciSenhaScreen} />
             <Stack.Screen name="ConfirmarEmail" component={ConfirmarEmailScreen} />
@@ -102,9 +94,38 @@ function FeedbackStack() {
     );
 }
 
-// Navegação por Bottom Tabs (E6-01): 4 abas de 1 polegar (Início, Hospitais, Mapa,
-// Perfil) substituindo o antigo Drawer. O mapa entrou como aba própria (navegação
-// revisada), em vez de botão dentro da Home. Transições suaves via burst.
+// Ícone da aba dentro da pílula: verde-claro quando a aba está ativa (novo layout).
+function iconeDaAba(Icone) {
+    return function IconeDaAba({ focused, color, size }) {
+        return (
+            <View style={[estiloAbas.pilula, focused && estiloAbas.pilulaAtiva]} testID={focused ? "aba-ativa" : undefined}>
+                <Icone color={color} size={size} />
+            </View>
+        );
+    };
+}
+
+const IconeInicio = iconeDaAba(MapPin);
+const IconeRanking = iconeDaAba(Trophy);
+const IconeVisitas = iconeDaAba(ClipboardList);
+const IconePerfil = iconeDaAba(UserIcon);
+
+const estiloAbas = StyleSheet.create({
+    pilula: { width: 64, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+    pilulaAtiva: { backgroundColor: colors.primaryContainer },
+});
+
+function voltarParaRaiz(navigation, aba, raiz) {
+    const state = navigation.getState();
+    const rota = state?.routes?.find((r) => r.name === aba);
+    const interna = rota?.state?.routes?.[rota.state.index ?? 0]?.name;
+    if (interna && interna !== raiz) {
+        navigation.navigate(aba, { screen: raiz });
+    }
+}
+
+// Navegação por Bottom Tabs (E6-01), com as 4 abas do novo layout: Início, Ranking,
+// Visitas e Perfil. A aba ativa ganha a pílula verde do design.
 function Tabs() {
     // Barra de sistema (Android, botões na tela — não gestos): o `BottomTabBar` da lib
     // soma `insets.bottom` sozinho à altura E ao paddingBottom padrão, mas SÓ quando a
@@ -114,18 +135,19 @@ function Tabs() {
     // de navegação clássica (relatado pelo PO, com captura de tela do físico — a barra
     // de gestos, sem essa barra, não expõe o bug porque o inset é ~0).
     const insets = useSafeAreaInsets();
+    const pendentes = useQuantidadeFeedbacksPendentes();
 
     return (
         <Tab.Navigator
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: colors.primary,
+                tabBarActiveTintColor: colors.onPrimaryContainer,
                 tabBarInactiveTintColor: colors.onSurfaceVariant,
                 tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
                 tabBarStyle: {
                     backgroundColor: colors.surfaceContainerLowest,
                     borderTopColor: colors.outlineVariant,
-                    height: 64 + insets.bottom,
+                    height: 72 + insets.bottom,
                     paddingBottom: 8 + insets.bottom,
                     paddingTop: 8,
                 },
@@ -133,42 +155,39 @@ function Tabs() {
         >
             <Tab.Screen
                 name="Inicio"
-                component={HomeStack}
+                component={InicioStack}
                 options={{
                     tabBarLabel: "Início",
-                    tabBarAccessibilityLabel: "Início — apresentação do app",
-                    tabBarIcon: ({ color, size }) => <HomeIcon color={color} size={size} />,
-                }}
-            />
-            <Tab.Screen
-                name="Hospitais"
-                component={HospitaisStack}
-                options={{
-                    tabBarLabel: "Hospitais",
-                    tabBarAccessibilityLabel: "Hospitais — lista com indicadores",
-                    tabBarIcon: ({ color, size }) => <Building2 color={color} size={size} />,
+                    tabBarAccessibilityLabel: "Início — hospitais perto de você",
+                    tabBarIcon: IconeInicio,
                 }}
                 listeners={({ navigation }) => ({
-                    // Item 07 (revisão de UX): ao reabrir a aba Hospitais, volta para a
-                    // lista — nunca para o HospitalDetalhe/Sugestão que estava no topo do
-                    // stack aninhado quando o usuário trocou de aba.
-                    tabPress: () => {
-                        const state = navigation.getState();
-                        const aba = state?.routes?.find((r) => r.name === "Hospitais");
-                        const interna = aba?.state?.routes?.[aba.state.index ?? 0]?.name;
-                        if (interna && interna !== "HospitaisLista") {
-                            navigation.navigate("Hospitais", { screen: "HospitaisLista" });
-                        }
-                    },
+                    // Item 07 (revisão de UX): ao reabrir a aba, volta para a raiz — nunca
+                    // para o detalhe que estava no topo da pilha quando o usuário trocou de aba.
+                    tabPress: () => voltarParaRaiz(navigation, "Inicio", "HospitaisLista"),
                 })}
             />
             <Tab.Screen
-                name="Mapa"
-                component={MapaStack}
+                name="Ranking"
+                component={RankingStack}
                 options={{
-                    tabBarLabel: "Mapa",
-                    tabBarAccessibilityLabel: "Mapa — hospitais e geolocalização",
-                    tabBarIcon: ({ color, size }) => <MapIcon color={color} size={size} />,
+                    tabBarLabel: "Ranking",
+                    tabBarAccessibilityLabel: "Ranking — melhores hospitais",
+                    tabBarIcon: IconeRanking,
+                }}
+                listeners={({ navigation }) => ({
+                    tabPress: () => voltarParaRaiz(navigation, "Ranking", "RankingTela"),
+                })}
+            />
+            <Tab.Screen
+                name="Visitas"
+                component={VisitasStack}
+                options={{
+                    tabBarLabel: "Visitas",
+                    tabBarAccessibilityLabel: "Visitas — histórico e avaliações pendentes",
+                    tabBarIcon: IconeVisitas,
+                    tabBarBadge: pendentes > 0 ? pendentes : undefined,
+                    tabBarBadgeStyle: { backgroundColor: colors.error, color: colors.onError },
                 }}
             />
             <Tab.Screen
@@ -177,7 +196,7 @@ function Tabs() {
                 options={{
                     tabBarLabel: "Perfil",
                     tabBarAccessibilityLabel: "Perfil — conta e privacidade",
-                    tabBarIcon: ({ color, size }) => <UserIcon color={color} size={size} />,
+                    tabBarIcon: IconePerfil,
                 }}
             />
         </Tab.Navigator>
