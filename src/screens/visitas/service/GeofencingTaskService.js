@@ -15,6 +15,7 @@ import { duracaoMinutosDesde } from "../../../utils/format";
 import { definirObservador, sincronizar } from "../../../services/SincronizacaoOffline";
 import { VALIDADE_MS as VALIDADE_FILA_MS } from "../../../config/filaOffline";
 import { registrarErro } from "../../../config/monitoramento";
+import { colors } from "../../../theme";
 
 /**
  * Geofencing nativo (F-03/ADR-002): substitui o GPS contínuo (que não funciona em
@@ -605,7 +606,7 @@ async function ajustarAcompanhamentoEmSerie() {
         foregroundService: {
           notificationTitle: "Pulseira Verde",
           notificationBody,
-          notificationColor: "#006193",
+          notificationColor: colors.primary,
         },
       });
     }

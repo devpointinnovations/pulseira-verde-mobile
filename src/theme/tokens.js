@@ -1,6 +1,6 @@
 /**
- * Design System "Clinical Sanctuary" v2.0 — tokens.
- * Fonte: Documentos/03-ui-ux/Padrao-UI-UX-v2.0.md (§5).
+ * Design System — tokens. Paleta verde do novo layout Pulseira Verde (logo B,
+ * proposta de 12/11/2026); escalas e espaçamentos do Padrao-UI-UX (§5).
  *
  * Tipografia (Manrope/Inter) ainda não é carregada via expo-font; as escalas
  * abaixo aplicam peso/tamanho/line-height/letterSpacing com a fonte do sistema.
@@ -8,67 +8,67 @@
  */
 
 export const colors = {
-  // Primárias
-  primary: "#006193",
+  // Primárias (verde da marca, logo B)
+  primary: "#0B6B4F",
   onPrimary: "#ffffff",
-  primaryContainer: "#007bb8",
-  onPrimaryContainer: "#fcfcff",
-  primaryFixed: "#cce5ff",
-  onPrimaryFixed: "#001e31",
-  primaryFixedDim: "#91ccff",
-  onPrimaryFixedVariant: "#004b73",
+  primaryContainer: "#D5EEE2",
+  onPrimaryContainer: "#06402F",
+  primaryFixed: "#D5EEE2",
+  onPrimaryFixed: "#06402F",
+  primaryFixedDim: "#CFE6D6",
+  onPrimaryFixedVariant: "#06402F",
 
   // Secundárias
-  secondary: "#006a6a",
+  secondary: "#2F6B57",
   onSecondary: "#ffffff",
-  secondaryContainer: "#90efef",
-  onSecondaryContainer: "#006e6e",
+  secondaryContainer: "#D5EEE2",
+  onSecondaryContainer: "#06402F",
 
-  // Terciárias
-  tertiary: "#884e00",
+  // Terciárias (âmbar: nota e "falta avaliar")
+  tertiary: "#8A5A00",
   onTertiary: "#ffffff",
-  tertiaryContainer: "#ab6300",
-  onTertiaryContainer: "#fffbff",
+  tertiaryContainer: "#FCEFD2",
+  onTertiaryContainer: "#5A3B00",
 
   // Erro
-  error: "#ba1a1a",
+  error: "#B3261E",
   onError: "#ffffff",
   errorContainer: "#ffdad6",
   onErrorContainer: "#93000a",
 
-  // Superfícies (hierarquia tonal — regra "no-line")
-  surface: "#f7f9fb",
+  // Superfícies (hierarquia tonal)
+  surface: "#F4F7F5",
   surfaceContainerLowest: "#ffffff",
-  surfaceContainerLow: "#f2f4f6",
-  surfaceContainer: "#eceef0",
-  surfaceContainerHigh: "#e6e8ea",
-  surfaceContainerHighest: "#e0e3e5",
-  surfaceVariant: "#e0e3e5",
-  onSurface: "#191c1e",
-  onSurfaceVariant: "#3f4850",
-  outline: "#6f7881",
-  outlineVariant: "#bfc7d2",
-  inverseSurface: "#2d3133",
-  inverseOnSurface: "#eff1f3",
-  inversePrimary: "#91ccff",
-  background: "#f7f9fb",
+  surfaceContainerLow: "#E7EEE9",
+  surfaceContainer: "#E6ECE8",
+  surfaceContainerHigh: "#E1E8E4",
+  surfaceContainerHighest: "#DDE9E1",
+  surfaceVariant: "#E1E8E4",
+  onSurface: "#13211B",
+  onSurfaceVariant: "#4C5B54",
+  outline: "#6B7A72",
+  outlineVariant: "#D9E2DC",
+  inverseSurface: "#24332C",
+  inverseOnSurface: "#EEF3F0",
+  inversePrimary: "#9ED8BE",
+  background: "#F4F7F5",
 
   // Semânticos (contexto paciente)
-  ratingFilled: "#884e00",
-  ratingEmpty: "#bfc7d2",
-  geoActive: "#006a6a",
-  geoInactive: "#3f4850",
-  successBg: "#90efef",
-  warningBg: "#ffdcbf",
-  onWarning: "#2d1600",
-  skeleton: "#e6e8ea",
-  overlayScrim: "rgba(25,28,30,0.4)",
+  ratingFilled: "#E8A317",
+  ratingEmpty: "#A9B8B0",
+  geoActive: "#0B6B4F",
+  geoInactive: "#4C5B54",
+  successBg: "#D5EEE2",
+  warningBg: "#FCEFD2",
+  onWarning: "#5A3B00",
+  skeleton: "#E1E8E4",
+  overlayScrim: "rgba(19,33,27,0.4)",
 };
 
 export const gradients = {
   // Gradiente primário (assinatura): 135°.
-  primary: ["#006193", "#007bb8"],
-  background: ["#f7f9fb", "#eef2f7"],
+  primary: ["#0B6B4F", "#06402F"],
+  background: ["#F4F7F5", "#E7EEE9"],
 };
 
 export const typography = {
