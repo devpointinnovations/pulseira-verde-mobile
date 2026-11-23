@@ -1,16 +1,18 @@
 /**
  * Smoke test de navegação (E6-01): garante que o App monta e que a barra de
- * Bottom Tabs exibe as 3 abas (Início, Hospitais, Perfil) que substituíram o Drawer.
+ * Bottom Tabs exibe as 4 abas do novo layout (Início, Ranking, Visitas, Perfil).
  *
  * Renderiza o `App` real com mocks das libs nativas (mapa, notifications, GPS),
  * conforme já feitos em `jest.setup.js`, e valida a árvore de acessibilidade da tab bar.
  */
 import React from "react";
 import { StyleSheet } from "react-native";
-import { render, screen, act } from "@testing-library/react-native";
+import { colors } from "../../theme";
+import { render, screen, act, fireEvent } from "@testing-library/react-native";
 import * as Notifications from "expo-notifications";
 import { __setMockInsets } from "react-native-safe-area-context";
 import App from "../../../App";
+import { concluirOnboarding } from "../../screens/onboarding/service/OnboardingService";
 import * as FeedbackNotificationService from "../../screens/feedback/service/FeedbackNotificationService";
 
 // utils/mapkit (adaptador do MapLibre): expõe componentes nativos não
@@ -27,6 +29,12 @@ jest.mock("../../utils/mapkit", () => {
     LineLayer: stub,
     FillLayer: stub,
   };
+});
+
+// A tela do mapa liga o GPS e segura o processo do Jest aberto; aqui só importa a navegação.
+jest.mock("../../screens/geolocalizacao/view/GeoLocalizacaoScreen", () => {
+  const { Text } = require("react-native");
+  return { __esModule: true, default: () => <Text>Mapa de Geolocalização</Text> };
 });
 
 // expo-task-manager: o módulo nativo não roda em Jest.
@@ -103,7 +111,9 @@ jest.mock("react-native-gesture-handler", () => {
  * A resposta é "sem visita ativa", que é o estado de quem abre o app pela primeira
  * vez — o caminho que este smoke test deve exercitar.
  */
-beforeEach(() => {
+beforeEach(async () => {
+  // Quem já passou pela apresentação abre direto nas abas.
+  await concluirOnboarding();
   global.fetch = jest.fn(async () => ({
     ok: true,
     status: 200,
@@ -114,30 +124,53 @@ beforeEach(() => {
 });
 
 describe("App — Bottom Tabs (E6-01)", () => {
-  it("monta o app e exibe as 4 abas (Início, Hospitais, Mapa, Perfil)", () => {
+  it("monta o app e exibe as 4 abas do novo layout (Início, Ranking, Visitas, Perfil)", async () => {
     render(<App />);
+    await screen.findByText("Início");
 
     expect(screen.getByText("Início")).toBeOnTheScreen();
-    expect(screen.getByText("Hospitais")).toBeOnTheScreen();
-    expect(screen.getByText("Mapa")).toBeOnTheScreen();
+    expect(screen.getByText("Ranking")).toBeOnTheScreen();
+    expect(screen.getByText("Visitas")).toBeOnTheScreen();
     expect(screen.getByText("Perfil")).toBeOnTheScreen();
+    expect(screen.queryByText("Mapa")).toBeNull();
   });
 
-  it("abre a aba de hospitais por padrão de acessibilidade", () => {
+  it("cada aba tem um rótulo de acessibilidade que diz o que ela abre", async () => {
     render(<App />);
+    await screen.findByText("Início");
 
-    const abaHospitais = screen.getByLabelText("Hospitais — lista com indicadores");
-    const abaPerfil = screen.getByLabelText("Perfil — conta e privacidade");
-    const abaInicio = screen.getByLabelText("Início — apresentação do app");
-    const abaMapa = screen.getByLabelText("Mapa — hospitais e geolocalização");
-
-    expect(abaHospitais).toBeOnTheScreen();
-    expect(abaPerfil).toBeOnTheScreen();
-    expect(abaInicio).toBeOnTheScreen();
-    expect(abaMapa).toBeOnTheScreen();
+    expect(screen.getByLabelText("Início — hospitais perto de você")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Ranking — melhores hospitais")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Visitas — histórico e avaliações pendentes")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Perfil — conta e privacidade")).toBeOnTheScreen();
   });
 
-  it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", () => {
+  it("Início abre a lista de hospitais e o ícone ativo fica na pílula verde", async () => {
+    render(<App />);
+    await screen.findByText("Início");
+
+    expect(screen.getByText("Perto de você")).toBeOnTheScreen();
+    // A tab bar desenha o ícone ativo e o inativo de cada aba e alterna pela opacidade.
+    const ativas = screen.getAllByTestId("aba-ativa");
+    expect(ativas).toHaveLength(4);
+    ativas.forEach((pilula) =>
+      expect(StyleSheet.flatten(pilula.props.style).backgroundColor).toBe(colors.primaryContainer)
+    );
+  });
+
+  it("tocar de novo na aba Início depois de abrir o mapa volta para a lista", async () => {
+    render(<App />);
+    await screen.findByText("Início");
+
+    fireEvent.press(screen.getByLabelText("Ver hospitais no mapa"));
+    expect(await screen.findByText("Mapa de Geolocalização")).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByLabelText("Ranking — melhores hospitais"));
+    fireEvent.press(screen.getByLabelText("Início — hospitais perto de você"));
+    expect(await screen.findByText("Perto de você")).toBeOnTheScreen();
+  });
+
+  it("em aparelho com barra de sistema (botões na tela), a tab bar soma o inset — não fica atrás dela", async () => {
     // Relato do PO com captura de tela do físico: a barra ficava atrás dos botões do
     // Android. `insets.bottom` só é > 0 com a barra de navegação clássica — a de
     // gestos tem inset ~0 e não expõe o bug. `@react-navigation/bottom-tabs` soma esse
@@ -146,6 +179,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
     __setMockInsets({ top: 0, right: 0, bottom: 48, left: 0 });
 
     render(<App />);
+    await screen.findByText("Início");
 
     // `getByRole("tablist")` não resolve neste ambiente (RNTL não mapeia esse role em
     // particular); o elemento existe na árvore com `accessibilityRole="tablist"` — é
@@ -154,13 +188,24 @@ describe("App — Bottom Tabs (E6-01)", () => {
     const barra = tablist.parent;
     const estilo = StyleSheet.flatten(barra.props.style);
 
-    expect(estilo.height).toBe(64 + 48);
+    expect(estilo.height).toBe(72 + 48);
     expect(estilo.paddingBottom).toBe(8 + 48);
   });
 });
 
 afterEach(() => {
   __setMockInsets({ top: 0, right: 0, bottom: 0, left: 0 });
+});
+
+describe("App — apresentação na primeira abertura", () => {
+  it("quem ainda não passou pela apresentação abre nela, não nas abas", async () => {
+    await require("@react-native-async-storage/async-storage").default.__reset();
+
+    render(<App />);
+
+    expect(await screen.findByText("Saiba qual hospital atende melhor perto de você")).toBeOnTheScreen();
+    expect(screen.queryByText("Perfil")).toBeNull();
+  });
 });
 
 describe("App — abrir formulário a partir da notificação de feedback (RN-09)", () => {

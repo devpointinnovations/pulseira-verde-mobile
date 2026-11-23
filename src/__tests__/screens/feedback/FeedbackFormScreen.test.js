@@ -28,6 +28,18 @@ describe("FeedbackFormScreen (Épico 03)", () => {
     concluirFeedback.mockResolvedValue();
   });
 
+  test("o X fecha a avaliação e a última etapa não oferece 'Pular'", () => {
+    const { UNSAFE_root } = renderizar();
+    fireEvent.press(screen.getByLabelText("Fechar"));
+    expect(UNSAFE_root.findByType(FeedbackFormScreen).props.navigation.goBack).toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText("Pular"));
+    fireEvent.press(screen.getByText("Pular"));
+    expect(screen.getByText("Avaliação geral")).toBeTruthy();
+    expect(screen.queryByText("Pular")).toBeNull();
+    expect(screen.getByText("Anônimo. Você pode mudar a resposta por 15 dias.")).toBeTruthy();
+  });
+
   test("começa na tela 1 (triagem) e é pulável (RN-11)", () => {
     renderizar();
     expect(screen.getByText("Você passou pela triagem?")).toBeTruthy();
@@ -179,6 +191,18 @@ describe("FeedbackFormScreen (Épico 03)", () => {
     const payload = FeedbackService.enviar.mock.calls[0][0];
     expect(payload.tratamentoEquipe).toBeUndefined();
     expect(payload.nota).toBe(5);
+  });
+
+  test("sem internet a avaliação fica guardada no celular e sai da lista de pendentes", async () => {
+    FeedbackService.enviar.mockRejectedValue(Object.assign(new Error("sem internet"), { enfileirado: true }));
+    renderizar();
+    ["Pular", "Pular"].forEach((label) => fireEvent.press(screen.getByText(label)));
+    fireEvent.press(screen.getByTestId("star-3"));
+    fireEvent.press(screen.getByText("Enviar avaliação"));
+
+    expect(await screen.findByText("Avaliação guardada")).toBeTruthy();
+    expect(screen.getByText(/será enviada assim que a conexão voltar/)).toBeTruthy();
+    expect(concluirFeedback).toHaveBeenCalledWith("v1");
   });
 
   test("duplicidade (RN-12): 409 mostra mensagem de já avaliado", async () => {

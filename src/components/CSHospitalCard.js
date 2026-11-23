@@ -1,19 +1,18 @@
 import React, { useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Building2 } from "lucide-react-native";
-import { colors, radii, shadows, spacing, typography } from "../theme/tokens";
+import { Clock, Hospital } from "lucide-react-native";
+import { colors, radii, spacing, typography } from "../theme/tokens";
 import { formatarDuracao, formatarNota } from "../utils/format";
 import { avaliacaoSuficiente } from "../utils/indicadores";
 import CSRatingStars from "./CSRatingStars";
-import CSBadge from "./CSBadge";
 
-const TIPO_LABEL = {
+export const TIPO_LABEL = {
   PUBLICO: "Público",
   PRIVADO: "Privado",
   FILANTROPICO: "Filantrópico",
 };
 
-const CATEGORIA_LABEL = {
+export const CATEGORIA_LABEL = {
   HOSPITAL: "Hospital",
   UPA: "UPA",
   UBS: "UBS",
@@ -57,8 +56,16 @@ function CSHospitalCard({
       ? hospital.tipoUnidade
       : null;
 
+  // "Hospital geral · Público · 1,2 km de você": unidade, natureza e distância numa linha.
+  const subtitulo = [tipoUnidade || categoriaLabel, tipoLabel, distancia && `${distancia} de você`]
+    .filter(Boolean)
+    .join(" · ");
+  const espera = temIndicadores && indicadores.tempoMedianoMinutos != null
+    ? formatarDuracao(indicadores.tempoMedianoMinutos)
+    : null;
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, checkinAtivo && styles.cardAtivo]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${hospital?.nome}, ${categoriaLabel || tipoLabel}`}
@@ -66,44 +73,34 @@ function CSHospitalCard({
         style={({ pressed }) => [styles.detailsButton, pressed && styles.pressed]}
       >
         <View style={styles.avatar}>
-          <Building2 size={24} color={colors.primary} />
+          <Hospital size={24} color={colors.onPrimaryContainer} />
         </View>
 
         <View style={styles.body}>
           <Text style={styles.name} numberOfLines={1}>
             {hospital?.nome}
           </Text>
-          <View style={styles.metaRow}>
-            {categoriaLabel ? (
-              <CSBadge label={categoriaLabel} variant="info" />
-            ) : (
-              <CSBadge label={tipoLabel} variant="info" />
-            )}
-            {tipoLabel && categoriaLabel ? (
-              <CSBadge label={tipoLabel} variant="neutral" />
-            ) : null}
-          </View>
-          {tipoUnidade ? (
-            <Text style={styles.unitType} numberOfLines={1}>
-              {tipoUnidade}
-            </Text>
-          ) : null}
-          {distancia ? <Text style={styles.distance}>{distancia} de você</Text> : null}
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitulo}
+          </Text>
           {temIndicadores ? (
             <View style={styles.ratingRow}>
-              <CSRatingStars nota={indicadores.notaMedia} size={16} />
+              <CSRatingStars nota={indicadores.notaMedia} size={13} />
               <Text style={styles.ratingValue}>{formatarNota(indicadores.notaMedia)}</Text>
               <Text style={styles.ratingCount}>{indicadores.nAvaliacoes} avaliações</Text>
             </View>
           ) : (
-            <Text style={styles.ratingCount}>Ainda sem avaliações suficientes</Text>
+            <Text style={[styles.ratingCount, styles.semAvaliacao]}>Ainda sem avaliações suficientes</Text>
           )}
-          {temIndicadores && indicadores.tempoMedianoMinutos != null ? (
-            <Text style={styles.timeMetric}>
-              Tempo médio: {formatarDuracao(indicadores.tempoMedianoMinutos)}
-            </Text>
-          ) : null}
         </View>
+
+        {espera ? (
+          <View style={styles.espera} accessibilityLabel={`Tempo médio de espera: ${espera}`}>
+            <Clock size={14} color={colors.onPrimaryContainer} />
+            <Text style={styles.esperaValor}>{espera}</Text>
+            <Text style={styles.esperaRotulo}>espera</Text>
+          </View>
+        ) : null}
       </Pressable>
       {onCheckin && (
         <Pressable
@@ -129,11 +126,7 @@ function CSHospitalCard({
               checkinAtivo && styles.checkinTextActive,
             ]}
           >
-            {checkinLoading
-              ? "Enviando..."
-              : checkinAtivo
-                ? "Em visita — ver"
-                : "Check-in"}
+            {textoDoCheckin(checkinLoading, checkinAtivo)}
           </Text>
         </Pressable>
       )}
@@ -141,69 +134,92 @@ function CSHospitalCard({
   );
 }
 
+function textoDoCheckin(enviando, ativo) {
+  if (enviando) {
+    return "Enviando...";
+  }
+  return ativo ? "Em visita — ver" : "Check-in";
+}
+
 const styles = StyleSheet.create({
   card: {
-    minHeight: 80,
     backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radii.xl,
-    padding: spacing.s5,
-    ...shadows.cloud1,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    padding: 14,
+  },
+  cardAtivo: {
+    borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   detailsButton: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.s3,
   },
   pressed: {
-    backgroundColor: colors.surfaceContainer,
+    opacity: 0.85,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.surfaceContainer,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primaryContainer,
     alignItems: "center",
     justifyContent: "center",
   },
   body: {
     flex: 1,
-    gap: spacing.s2,
+    minWidth: 0,
   },
   name: {
-    ...typography.titleLg,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "700",
     color: colors.onSurface,
   },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.s2,
-  },
-  unitType: {
-    ...typography.bodySm,
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.onSurfaceVariant,
-  },
-  distance: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
+    marginTop: 1,
   },
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.s2,
+    gap: 5,
+    marginTop: 5,
   },
   ratingValue: {
     ...typography.numeric,
-    fontSize: 16,
+    fontSize: 13,
     color: colors.onSurface,
   },
   ratingCount: {
-    ...typography.bodySm,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.onSurfaceVariant,
   },
-  timeMetric: {
-    ...typography.bodySm,
-    color: colors.onSurfaceVariant,
+  semAvaliacao: {
+    marginTop: 5,
+  },
+  espera: {
+    minWidth: 60,
+    paddingHorizontal: spacing.s2,
+    paddingVertical: 6,
+    borderRadius: radii.md,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+  },
+  esperaValor: {
+    ...typography.numeric,
+    fontSize: 15,
+    color: colors.onPrimaryContainer,
+  },
+  esperaRotulo: {
+    fontSize: 11,
+    color: colors.onPrimaryContainer,
   },
   checkinButton: {
     alignSelf: "flex-start",
@@ -213,10 +229,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.primary,
     justifyContent: "center",
-    marginTop: spacing.s2,
+    marginTop: spacing.s3,
+    marginLeft: 56,
   },
   checkinButtonActive: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.primaryContainer,
   },
   checkinButtonPressed: {
     opacity: 0.8,
@@ -230,7 +247,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   checkinTextActive: {
-    color: colors.primary,
+    color: colors.onPrimaryContainer,
   },
 });
 

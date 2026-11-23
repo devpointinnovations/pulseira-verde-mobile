@@ -4,7 +4,8 @@
  */
 import React from "react";
 import { AppState } from "react-native";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { renderComProviders as render } from "../../helpers/renderComProviders";
 import FeedbacksPendentesCard, {
   __reiniciarSincronizacao,
   descreverPrazo,
@@ -53,7 +54,7 @@ describe("FeedbacksPendentesCard", () => {
     render(<FeedbacksPendentesCard />);
 
     expect(await screen.findByText("UPA Ceilândia")).toBeOnTheScreen();
-    expect(screen.getByText("Avaliação pendente")).toBeOnTheScreen();
+    expect(screen.getByText("Falta avaliar")).toBeOnTheScreen();
   });
 
   test("tocar em Avaliar abre o formulário da visita", async () => {
@@ -103,7 +104,7 @@ describe("FeedbacksPendentesCard", () => {
 
     render(<FeedbacksPendentesCard />);
 
-    expect(await screen.findByText("2 avaliações pendentes")).toBeOnTheScreen();
+    expect(await screen.findByText("Faltam 2 avaliações")).toBeOnTheScreen();
   });
 
   test("sem pendência o card não aparece", async () => {

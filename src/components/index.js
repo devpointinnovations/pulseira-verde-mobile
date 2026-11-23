@@ -1,7 +1,6 @@
 export { default as CSButton } from "./CSButton";
 export { default as CSTextField } from "./CSTextField";
 export { default as CSCard } from "./CSCard";
-export { default as CSBadge } from "./CSBadge";
 export { default as CSHeader } from "./CSHeader";
 export { default as CSIconButton } from "./CSIconButton";
 export { default as CSEmptyState } from "./CSEmptyState";
@@ -10,3 +9,4 @@ export { default as CSRatingStars } from "./CSRatingStars";
 export { default as CSChip } from "./CSChip";
 export { default as CSHospitalCard } from "./CSHospitalCard";
 export { default as CSOptionSheet } from "./CSOptionSheet";
+export { default as CSAvisoConexao } from "./CSAvisoConexao";

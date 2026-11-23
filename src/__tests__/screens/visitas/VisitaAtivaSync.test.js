@@ -19,6 +19,8 @@ import { iniciarHeartbeat, pararHeartbeat } from "../../../screens/visitas/servi
 import { ErroSemInternet } from "../../../config/http";
 import { invalidarVisitaAtiva } from "../../../core/query/queryClient";
 import { definirUsuarioDaSessao, sessaoStore } from "../../../core/stores/sessaoStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { concluirOnboarding } from "../../../screens/onboarding/service/OnboardingService";
 
 jest.mock("../../../screens/visitas/service/VisitaService");
 jest.mock("../../../screens/visitas/service/GeofencingTaskService");
@@ -45,6 +47,7 @@ async function recarregar(queryClient) {
 describe("VisitaAtivaSync", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    AsyncStorage.__reset();
     sessaoStore.setState({ usuario: null, hidratada: true });
     iniciarGeofencing.mockResolvedValue(undefined);
     sincronizarVisitaAtiva.mockResolvedValue(undefined);
@@ -58,6 +61,18 @@ describe("VisitaAtivaSync", () => {
 
     await waitFor(() => expect(iniciarGeofencing).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(sincronizarVisitaAtiva).toHaveBeenCalledWith(null, null, null, null));
+  });
+
+  test("antes do fim da apresentação só confere a permissão; depois pode pedir", async () => {
+    VisitaService.buscarAtiva.mockResolvedValue({ visita: null });
+
+    const primeira = montar();
+    await waitFor(() => expect(iniciarGeofencing).toHaveBeenCalledWith({ interativo: false }));
+    primeira.unmount();
+
+    await concluirOnboarding();
+    montar();
+    await waitFor(() => expect(iniciarGeofencing).toHaveBeenLastCalledWith({ interativo: true }));
   });
 
   test("repassa id, entrada, hospital e origem ao geofencing e liga o heartbeat", async () => {

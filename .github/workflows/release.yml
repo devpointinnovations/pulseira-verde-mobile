@@ -69,7 +69,7 @@ jobs:
       # recursao): o `push` em `release/**` do cd-producao.yml nunca rodaria para a branch
       # que este job acabou de criar. `workflow_dispatch` e a excecao que o GITHUB_TOKEN
       # pode acionar. Achado em 14/10/2026 (analise da Play Store). Desde 29/10/2026 o
-      # backend de producao sai do radar-saude-backend, com a release dele.
+      # backend de producao sai do pulseira-verde-backend, com a release dele.
       - name: Disparar o AAB de produção
         env:
           GH_TOKEN: ${{ github.token }}

@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Bell, LogIn, MapPin, History, ShieldCheck, Trash2, UserPlus } from "lucide-react-native";
+import { Bell, ChevronRight, CircleHelp, Hospital, LogIn, LogOut, MapPin, ShieldCheck, Trash2, UserPlus } from "lucide-react-native";
 import PerfilService from "../service/PerfilService";
 import LoginService from "../../auth/service/LoginService";
 import { useSessao } from "../../../core/stores/sessaoStore";
@@ -188,11 +188,13 @@ export default function PerfilScreen({ navigation }) {
     await PerfilService.deslogar();
   };
 
+  const nome = usuario?.nome || usuario?.fullName || "Usuário";
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Perfil e Privacidade</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <Text style={styles.titulo} accessibilityRole="header">
+        Perfil
+      </Text>
 
       <ScrollView contentContainerStyle={styles.content}>
         {emCarregamento ? <CSLoadingList count={2} /> : null}
@@ -209,49 +211,25 @@ export default function PerfilScreen({ navigation }) {
 
         {!emCarregamento && !erroInicial && (
           <>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Minha conta</Text>
-
-              {usuario ? (
-                <>
-                  <View
-                    style={styles.avatar}
-                    accessible={false}
-                    accessibilityElementsHidden
-                  >
-                    <Text style={styles.avatarText}>
-                      {(usuario.nome || usuario.fullName || "U").charAt(0).toUpperCase()}
-                    </Text>
+            {usuario ? (
+              <View style={styles.grupo}>
+                <View style={styles.conta}>
+                  <View style={styles.avatar} accessible={false} accessibilityElementsHidden>
+                    <Text style={styles.avatarText}>{nome.charAt(0).toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.userName}>{usuario.nome || usuario.fullName || "Usuário"}</Text>
-                  <Text style={styles.userEmail}>{usuario.email || ""}</Text>
-
-                  <TouchableOpacity
-                    style={styles.buttonSecondary}
-                    onPress={() => irPara("Historico")}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ver meu histórico de visitas e avaliações"
-                  >
-                    <History size={18} color={colors.onSurface} />
-                    <Text style={styles.buttonTextSecondary}> Meu histórico</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.buttonSecondary}
-                    onPress={deslogar}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sair da conta"
-                  >
-                    <Text style={styles.buttonTextSecondary}>Sair da conta</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
+                  <View style={styles.linhaTextos}>
+                    <Text style={styles.userName}>{nome}</Text>
+                    <Text style={styles.userEmail}>{usuario.email || ""}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.grupo}>
                 <View style={styles.semAcesso}>
-                  <ShieldCheck size={34} color={colors.outline} />
                   <Text style={styles.semAcessoTitle}>Conta opcional</Text>
                   <Text style={styles.semAcessoText}>
-                    Criar uma conta é opcional — você pode usar o aplicativo sem se cadastrar.
-                    Faça login para acessar seus dados e o histórico.
+                    Você pode usar o app sem se cadastrar. Entre para ver suas visitas em
+                    qualquer aparelho.
                   </Text>
                   <View style={styles.semAcessoActions}>
                     <TouchableOpacity
@@ -274,89 +252,99 @@ export default function PerfilScreen({ navigation }) {
                     </TouchableOpacity>
                   </View>
                 </View>
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Dados e Privacidade</Text>
-
-              <View style={styles.row}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <MapPin size={17} color={colors.primary} />
-                  <Text style={[styles.rowLabel, { marginLeft: 8 }]}>Localização</Text>
-                </View>
-                <View style={[styles.status, permissaoConcedida ? styles.statusAtivo : styles.statusInativo]}>
-                  <Text style={permissaoConcedida ? styles.statusAtivoText : styles.statusInativoText}>
-                    {permissaoConcedida ? "Ativa" : "Desativada"}
-                  </Text>
-                </View>
               </View>
+            )}
 
-              {!permissaoConcedida ? (
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={solicitarPermissao}
-                  disabled={carregando}
-                  accessibilityRole="button"
-                  accessibilityLabel="Permitir localização"
-                  accessibilityState={{ disabled: carregando }}
-                >
-                  <Text style={styles.buttonText}>Permitir localização</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.buttonSecondary}
-                  onPress={revogarPermissao}
-                  accessibilityRole="button"
-                  accessibilityLabel="Revogar permissão de localização"
-                >
-                  <Text style={styles.buttonTextSecondary}>Revogar permissão de localização</Text>
-                </TouchableOpacity>
-              )}
+            <Text style={styles.secao}>O app</Text>
+            <View style={styles.grupo}>
+              <LinhaMenu
+                icone={Hospital}
+                titulo="Sugerir um hospital"
+                subtitulo="Não achou o seu? Avise a gente"
+                onPress={() => navigation?.navigate?.("Inicio", { screen: "SugerirHospital" })}
+              />
+              <LinhaMenu
+                icone={CircleHelp}
+                titulo="Como funciona"
+                subtitulo="Rever a apresentação do app"
+                onPress={() => navigation?.navigate?.("Onboarding")}
+                ultima
+              />
+            </View>
 
-              <Text style={styles.footerNote}>
-                A permissão é usada apenas para detectar automaticamente suas visitas a hospitais
-                (geofencing). Negar ou revogar não bloqueia a consulta pública nem o restante do app.
-              </Text>
-
-              <TouchableOpacity
-                style={styles.buttonSecondary}
+            <Text style={styles.secao}>Suas preferências</Text>
+            <View style={styles.grupo}>
+              <LinhaMenu
+                icone={MapPin}
+                titulo="Localização"
+                subtitulo={permissaoConcedida ? "Ativa · percebe sua chegada" : "Desativada · toque para permitir"}
+                onPress={permissaoConcedida ? revogarPermissao : solicitarPermissao}
+                desabilitado={carregando}
+                accessibilityLabel={
+                  permissaoConcedida ? "Revogar permissão de localização" : "Permitir localização"
+                }
+              />
+              <LinhaMenu
+                icone={Bell}
+                titulo="Avisos"
+                subtitulo="Aviso para avaliar a visita"
                 onPress={() => irPara("Notificacoes")}
-                accessibilityRole="button"
                 accessibilityLabel="Gerenciar notificações"
-              >
-                <Bell size={17} color={colors.primary} />
-                <Text style={styles.buttonTextSecondary}> Notificações</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Termos e dados pessoais</Text>
-              <TouchableOpacity
+              />
+              <LinhaMenu
+                icone={ShieldCheck}
+                titulo="Dados e privacidade"
+                subtitulo="Política de Privacidade e Termos de Uso"
                 onPress={() => irPara("Privacidade")}
-                accessibilityRole="button"
                 accessibilityLabel="Ler Política de Privacidade e Termos de Uso"
-              >
-                <Text style={styles.link}>Ler Política de Privacidade e Termos de Uso</Text>
-              </TouchableOpacity>
-
-              {usuario && (
-                <TouchableOpacity
-                  style={styles.dangerButton}
-                  onPress={excluirConta}
-                  disabled={carregando}
-                  accessibilityRole="button"
-                  accessibilityLabel="Excluir conta e dados pessoais"
-                  accessibilityState={{ disabled: carregando }}
-                >
-                  <Trash2 size={17} color={colors.error} />
-                  <Text style={styles.dangerButtonText}> Excluir conta e dados pessoais</Text>
-                </TouchableOpacity>
-              )}
+                ultima
+              />
             </View>
+            <Text style={styles.footerNote}>
+              A localização serve só para perceber suas visitas a hospitais. Sem ela, a consulta
+              e o restante do app continuam funcionando.
+            </Text>
+
+            {usuario ? (
+              <View style={styles.grupo}>
+                <LinhaMenu icone={LogOut} titulo="Sair da conta" onPress={deslogar} />
+                <LinhaMenu
+                  icone={Trash2}
+                  titulo="Excluir conta e dados pessoais"
+                  onPress={excluirConta}
+                  desabilitado={carregando}
+                  perigo
+                  ultima
+                />
+              </View>
+            ) : null}
           </>
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** Linha de menu do Perfil (layout novo): ícone em bloco verde, título, subtítulo e seta. */
+function LinhaMenu({ icone: Icone, titulo, subtitulo, onPress, accessibilityLabel, desabilitado, perigo, ultima }) {
+  const cor = perigo ? colors.error : colors.primary;
+  return (
+    <TouchableOpacity
+      style={[styles.linha, ultima && styles.linhaUltima]}
+      onPress={onPress}
+      disabled={desabilitado}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || titulo}
+      accessibilityState={{ disabled: Boolean(desabilitado) }}
+    >
+      <View style={[styles.linhaIcone, perigo && styles.linhaIconePerigo]}>
+        <Icone size={22} color={cor} />
+      </View>
+      <View style={styles.linhaTextos}>
+        <Text style={[styles.linhaTitulo, perigo && { color: colors.error }]}>{titulo}</Text>
+        {subtitulo ? <Text style={styles.linhaSubtitulo}>{subtitulo}</Text> : null}
+      </View>
+      <ChevronRight size={20} color={colors.outline} />
+    </TouchableOpacity>
   );
 }

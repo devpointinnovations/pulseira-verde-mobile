@@ -173,11 +173,11 @@ histórico preservado em cada um):
 
 | Componente | Tecnologia | Repositório |
 |---|---|---|
-| App mobile | Expo 55, React Native, MapLibre, TanStack Query, Zustand | **radar-saude-mobile** (este) |
-| API | Java 25, Spring Boot 4, MongoDB, Google Cloud Run | [radar-saude-backend](https://github.com/devpointinnovations/radar-saude-backend) |
-| Painel administrativo | Angular 21 | [painel-admin-frontend](https://github.com/devpointinnovations/painel-admin-frontend) |
-| Documentação e site público | Markdown, Cloudflare Workers | [radar-saude-docs](https://github.com/devpointinnovations/radar-saude-docs) |
+| App mobile | Expo 55, React Native, MapLibre, TanStack Query, Zustand | **pulseira-verde-mobile** (este) |
+| API | Java 25, Spring Boot 4, MongoDB, Google Cloud Run | [pulseira-verde-backend](https://github.com/devpointinnovations/pulseira-verde-backend) |
+| Painel administrativo | Angular 21 | [pulseira-verde-admin](https://github.com/devpointinnovations/pulseira-verde-admin) |
+| Documentação e site público | Markdown, Cloudflare Workers | [pulseira-verde-docs](https://github.com/devpointinnovations/pulseira-verde-docs) |
 
-- **Subir o projeto na sua máquina:** [Guia do Ambiente Local](https://github.com/devpointinnovations/radar-saude-docs/blob/develop/Documentos/02-arquitetura-tecnica/Guia-Ambiente-Local-v1.0.md) (backend com Docker, app com Expo, URLs da API e problemas comuns).
-- **Documentação completa:** [índice central](https://github.com/devpointinnovations/radar-saude-docs/blob/develop/Documentos/00-INDICE.md), com negócio, arquitetura, contratos da API, backlog e histórico de melhorias.
-- **Fluxo de trabalho:** branches, ambientes, homologação e deploy no [manual do git-flow](https://github.com/devpointinnovations/radar-saude-docs/blob/develop/Documentos/10-git-flow/MANUAL.md).
+- **Subir o projeto na sua máquina:** [Guia do Ambiente Local](https://github.com/devpointinnovations/pulseira-verde-docs/blob/develop/Documentos/02-arquitetura-tecnica/Guia-Ambiente-Local-v1.0.md) (backend com Docker, app com Expo, URLs da API e problemas comuns).
+- **Documentação completa:** [índice central](https://github.com/devpointinnovations/pulseira-verde-docs/blob/develop/Documentos/00-INDICE.md), com negócio, arquitetura, contratos da API, backlog e histórico de melhorias.
+- **Fluxo de trabalho:** branches, ambientes, homologação e deploy no [manual do git-flow](https://github.com/devpointinnovations/pulseira-verde-docs/blob/develop/Documentos/10-git-flow/MANUAL.md).

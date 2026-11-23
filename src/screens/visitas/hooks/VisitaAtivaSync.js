@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ErroDeConexao } from "../../../config/http";
 import { iniciarGeofencing, sincronizarVisitaAtiva } from "../service/GeofencingTaskService";
+import { onboardingConcluido } from "../../onboarding/service/OnboardingService";
 import { iniciarHeartbeat, pararHeartbeat } from "../service/HeartbeatService";
 import { useVisitaAtiva } from "./useVisitaAtiva";
 
@@ -22,10 +23,14 @@ import { useVisitaAtiva } from "./useVisitaAtiva";
 export default function VisitaAtivaSync() {
   useEffect(() => {
     // Inicia o geofencing nativo (F-03/ADR-002) uma vez, no ciclo de vida do app.
-    iniciarGeofencing().catch(() => {
-      // Sem permissão de localização em segundo plano: o check-in manual na lista de
-      // Hospitais continua disponível; nada a fazer aqui.
-    });
+    // Antes do fim da apresentação, só confere: quem pede a localização é a tela 2 dela,
+    // depois de explicar o motivo, e não o sistema por cima da primeira tela.
+    onboardingConcluido()
+      .then((concluido) => iniciarGeofencing({ interativo: concluido }))
+      .catch(() => {
+        // Sem permissão de localização em segundo plano: o check-in manual na lista de
+        // Hospitais continua disponível; nada a fazer aqui.
+      });
   }, []);
 
   const { data, dataUpdatedAt, error, errorUpdatedAt } = useVisitaAtiva();

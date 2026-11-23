@@ -1,17 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
+  Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { MapPinOff, Search, Trophy } from "lucide-react-native";
+import { Map as MapIcon, MapPinOff, Search, Timer } from "lucide-react-native";
 import {
-  CSHeader,
   CSHospitalCard,
   CSEmptyState,
   CSLoadingList,
@@ -25,9 +25,9 @@ import {
   useHospital,
   useListaDeHospitais,
 } from "../hooks/useHospitais";
-import { useCheckinManual } from "../../visitas/hooks/useMutacoesVisita";
+import { useCheckinNoHospital } from "../../visitas/hooks/useCheckinNoHospital";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
-import { avisarSemConexao } from "../../../utils/alertas";
+import { duracaoMinutosDesde } from "../../../utils/format";
 
 const TIPO_FILTROS = [
   { value: "", label: "Todos" },
@@ -35,6 +35,44 @@ const TIPO_FILTROS = [
   { value: "PRIVADO", label: "Privado" },
   { value: "FILANTROPICO", label: "Filantrópico" },
 ];
+
+/**
+ * Aviso da visita em andamento no topo do Início (layout novo). Os minutos se atualizam
+ * sozinhos; o toque abre a tela da visita.
+ */
+function AvisoVisita({ visita, hospitalNome, onPress }) {
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setAgora(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+  const minutos = duracaoMinutosDesde(visita.entrada, agora);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Visita em andamento${hospitalNome ? ` em ${hospitalNome}` : ""}`}
+      onPress={onPress}
+      style={styles.aviso}
+    >
+      <View style={styles.avisoIcone}>
+        <Timer size={22} color={colors.onPrimary} />
+      </View>
+      <View style={styles.avisoTextos}>
+        <Text style={styles.avisoRotulo}>Visita em andamento</Text>
+        <Text style={styles.avisoHospital} numberOfLines={1}>
+          {hospitalNome || "Hospital"}
+        </Text>
+      </View>
+      {minutos === undefined ? null : (
+        <Text style={styles.avisoMinutos}>
+          {minutos}
+          <Text style={styles.avisoMin}> min</Text>
+        </Text>
+      )}
+    </Pressable>
+  );
+}
 
 /**
  * Listagem pública de hospitais ativos (E1-03).
@@ -51,8 +89,6 @@ export default function HospitaisScreen({ navigation }) {
   // digitada refaria o filtro e a ordenação do catálogo inteiro.
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [tipo, setTipo] = useState("");
-
-  const [checkinEnviandoId, setCheckinEnviandoId] = useState(null);
 
   useEffect(() => {
     const espera = setTimeout(() => setBuscaAplicada(busca), 400);
@@ -85,7 +121,6 @@ export default function HospitaisScreen({ navigation }) {
   // ao voltar do detalhe) para refletir o botão de check-in de cada hospital (modo
   // anônimo via dispositivoId, §3.3). Sem conexão não é "sem visita ativa".
   const { visita: visitaAtiva, definirLocal: definirVisitaLocal } = useVisitaAtivaDaTela();
-  const { mutateAsync: registrarCheckin } = useCheckinManual();
 
   // Pedido do PO (10/09/2026): o hospital do check-in ativo aparece no topo, sem
   // precisar procurá-lo na lista.
@@ -103,16 +138,6 @@ export default function HospitaisScreen({ navigation }) {
     return [hospitalCheckinAtivo, ...semODuplicado];
   }, [dados, hospitalCheckinAtivo]);
 
-  // ARQ-05 / code-review de 03/09/2026: a expressão de função nomeada `checkin` abaixo
-  // congela o closure. Se a visita ativa chegar (buscarAtiva resolvendo) DEPOIS que o
-  // alerta de conflito 409 apareceu, o toque no candidato reentraria com
-  // `visitaAtiva === null` e furaria o guard de "check-in ativo", abrindo uma segunda
-  // visita. O ref carrega o valor corrente para dentro da recursão.
-  const visitaAtivaRef = useRef(visitaAtiva);
-  useEffect(() => {
-    visitaAtivaRef.current = visitaAtiva;
-  }, [visitaAtiva]);
-
   const abrirDetalhe = useCallback(
     (hospital) => {
       navigation.navigate("HospitalDetalhe", { id: hospital.id });
@@ -120,75 +145,13 @@ export default function HospitaisScreen({ navigation }) {
     [navigation]
   );
 
-  // ARQ-05: `fazerCheckin` e `tratarConflitoGeofence` se chamavam mutuamente, o que
-  // impediria memoizar as duas (dependência circular entre dois useCallback). A
-  // expressão de função nomeada `checkin` resolve a recursão sem ref auxiliar nem
-  // efeito, e o tratamento do 409 passa a viver no único lugar que o dispara.
-  const fazerCheckin = useCallback(
-    async function checkin(hospital) {
-      const ativa = visitaAtivaRef.current;
-      if (ativa) {
-        if (ativa.hospitalId === hospital.id) {
-          navigation.navigate("HospitalDetalhe", { id: hospital.id });
-        } else {
-          Alert.alert(
-            "Check-in ativo",
-            "Você já tem uma visita em andamento em outro hospital. Finalize-a antes de começar outra."
-          );
-        }
-        return;
-      }
-
-      setCheckinEnviandoId(hospital.id);
-      try {
-        // A mutação grava a visita confirmada na query compartilhada: o botão muda
-        // aqui e o observador global (heartbeat e geofencing) segue a visita nova sem
-        // depender de a aba Início ganhar foco (Auditoria Técnica v4.0, §4.2.2).
-        await registrarCheckin({ hospitalId: hospital.id });
-        // Redireciona ao detalhe do hospital, que exibe o temporizador + checkout
-        // (específico do check-in manual).
-        setCheckinEnviandoId(null);
-        navigation.navigate("HospitalDetalhe", { id: hospital.id });
-      } catch (e) {
-        setCheckinEnviandoId(null);
-        if (e.status === 409 && e.data?.candidatos?.length) {
-          const conflito = e.data;
-          Alert.alert(
-            "Qual hospital é este?",
-            conflito.message || "Encontramos mais de um hospital nesta localização.",
-            [
-              ...conflito.candidatos.map((candidato) => ({
-                text: candidato.nome,
-                onPress: () => checkin({ id: candidato.hospitalId, nome: candidato.nome }),
-              })),
-              { text: "Cancelar", style: "cancel" },
-            ]
-          );
-          return;
-        }
-        if (e.enfileirado) {
-          // Sem conexão, o check-in foi guardado para sincronizar depois (OPS-05) —
-          // não é uma falha, então o alerta não pode soar como uma. Fica na lista em
-          // vez de navegar para o detalhe, que dependeria da mesma rede indisponível.
-          //
-          // Marca a visita como ativa AQUI, localmente: arma o guard de "uma visita
-          // por vez" (visitaAtivaRef, acima) antes da fila sincronizar. Janela residual
-          // e decisão de aceitá-la documentadas em `preservarSeSemConexao`
-          // (utils/alertas.js) — o `id: null` é substituído pelo real na próxima
-          // resposta do servidor (foco da aba ou volta da conexão).
-          definirVisitaLocal({ id: null, hospitalId: hospital.id, origem: "MANUAL" });
-          avisarSemConexao(e.message);
-          return;
-        }
-        Alert.alert("Check-in", e.message || "Não foi possível fazer o check-in.");
-      }
-    },
-    // `visitaAtiva` sai da lista de propósito: o guard passou a ler o ref, então a
-    // função não precisa mais ser recriada a cada mudança de visita -- fica estável
-    // para o renderItem memoizado abaixo. O exhaustive-deps confirma que é dependência
-    // desnecessária.
-    [navigation, registrarCheckin, definirVisitaLocal]
-  );
+  // Mesmas regras do "Estou aqui agora" do detalhe; o check-in aceito abre o detalhe, que
+  // mostra o tempo e o "Não estou aqui".
+  const { checkin: fazerCheckin, enviandoId: checkinEnviandoId } = useCheckinNoHospital({
+    visitaAtiva,
+    definirLocal: definirVisitaLocal,
+    aoEntrar: abrirDetalhe,
+  });
 
   // ARQ-05: extraido do JSX e memoizado. Inline, ele criava uma funcao nova a cada
   // render da tela, e com ela um `onPress`/`onCheckin` novo por item -- o que anularia
@@ -252,26 +215,42 @@ export default function HospitaisScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader
-        title="Hospitais"
-        rightAction={
-          <CSIconButton
-            icon={Trophy}
-            onPress={() => navigation.navigate("Ranking")}
-            accessibilityLabel="Abrir ranking de hospitais"
-          />
-        }
-      />
-
       <View style={styles.searchArea}>
-        <CSTextField
-          value={busca}
-          onChangeText={setBusca}
-          placeholder="Buscar hospital por nome"
-          icon={Search}
-        />
+        <View style={styles.buscaLinha}>
+          <View style={styles.buscaCampo}>
+            <CSTextField
+              value={busca}
+              onChangeText={setBusca}
+              placeholder="Buscar hospital ou UPA"
+              icon={Search}
+            />
+          </View>
+          <CSIconButton
+            icon={MapIcon}
+            color={colors.primary}
+            onPress={() => navigation.navigate("MapaTela")}
+            accessibilityLabel="Ver hospitais no mapa"
+          />
+        </View>
 
-        <View style={styles.chipsRow}>
+        {visitaAtiva ? (
+          <AvisoVisita
+            visita={visitaAtiva}
+            hospitalNome={hospitalCheckinAtivo?.nome}
+            onPress={() => navigation.navigate("VisitaEmAndamento")}
+          />
+        ) : null}
+
+        <View style={styles.tituloLinha}>
+          <Text style={styles.titulo} accessibilityRole="header">
+            Perto de você
+          </Text>
+          <Pressable accessibilityRole="link" onPress={() => navigation.navigate("Ranking")} hitSlop={12}>
+            <Text style={styles.verRanking}>Ver ranking</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {TIPO_FILTROS.map((f) => (
             <CSChip
               key={f.value || "todos"}
@@ -280,7 +259,7 @@ export default function HospitaisScreen({ navigation }) {
               onPress={() => setTipo(f.value)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {semIndicadores ? (
@@ -320,11 +299,41 @@ const styles = StyleSheet.create({
     padding: spacing.s4,
     gap: spacing.s3,
   },
+  buscaLinha: { flexDirection: "row", alignItems: "center", gap: spacing.s2 },
+  buscaCampo: { flex: 1 },
+  tituloLinha: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.s1,
+  },
+  titulo: { ...typography.headlineMd, color: colors.onSurface },
+  verRanking: { ...typography.labelLg, color: colors.primary },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.s2,
   },
+  aviso: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.s3,
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    padding: spacing.s4,
+  },
+  avisoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avisoTextos: { flex: 1 },
+  avisoRotulo: { ...typography.bodySm, color: colors.onPrimary, opacity: 0.9 },
+  avisoHospital: { ...typography.titleMd, color: colors.onPrimary, fontWeight: "700" },
+  avisoMinutos: { fontSize: 28, lineHeight: 34, fontWeight: "800", color: colors.onPrimary },
+  avisoMin: { ...typography.bodyMd, color: colors.onPrimary },
   listContent: {
     paddingHorizontal: spacing.s4,
     paddingBottom: spacing.s6,

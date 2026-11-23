@@ -58,16 +58,9 @@ describe("PerfilScreen (E5-05 — revogação nativa)", () => {
 
   async function renderizar() {
     render(<PerfilScreen navigation={NAVEGACAO} />);
-    // Espera pelo card "Minha conta", e não pelo cabeçalho: o cabeçalho é
-    // "Perfil e Privacidade" (o `Text` de `styles.headerTitle`), fica FORA do
-    // `ScrollView` e é pintado durante o carregamento — esperar por ele deixaria o
-    // teste seguir antes de o perfil chegar. Dentro do `ScrollView`, o carregamento
-    // inicial pinta apenas <CSLoadingList count={2} />.
-    //
-    // (O comentário anterior dizia que o cabeçalho era "Dados e Privacidade". Errado
-    // duas vezes: esse texto é um título de card, renderizado só depois do
-    // carregamento — logo, esperar por ele seria seguro —, e não é o cabeçalho.)
-    await screen.findByText("Minha conta");
+    // Espera pela seção "Suas preferências", que só aparece depois do carregamento (o
+    // título "Perfil" fica fora do ScrollView e é pintado durante o carregamento).
+    await screen.findByText("Suas preferências");
   }
 
   test("antes de ler o usuário gravado, fica em carregamento em vez de mostrar o convite ao login", async () => {
@@ -152,14 +145,14 @@ describe("PerfilScreen (E5-05 — revogação nativa)", () => {
 
   test("ao voltar do sistema, reflete a permissão desativada e registra a decisão", async () => {
     await renderizar();
-    expect(screen.getByText("Ativa")).toBeTruthy();
+    expect(screen.getByText(/^Ativa/)).toBeTruthy();
 
     PerfilService.permissaoLocalizacao.mockResolvedValue("denied");
     await act(async () => {
       await Promise.all(ouvintesAppState.map((ouvinte) => ouvinte("active")));
     });
 
-    await waitFor(() => expect(screen.getByText("Desativada")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^Desativada/)).toBeTruthy());
     expect(PerfilService.atualizarConsentimento).toHaveBeenCalledWith({ localizacao: false });
   });
 
@@ -183,5 +176,18 @@ describe("PerfilScreen (E5-05 — revogação nativa)", () => {
     });
 
     expect(PerfilService.atualizarConsentimento).toHaveBeenCalledWith({ localizacao: true });
+  });
+
+  test("as linhas do menu levam à sugestão de hospital, aos avisos e à privacidade", async () => {
+    await renderizar();
+    fireEvent.press(screen.getByLabelText("Sugerir um hospital"));
+    fireEvent.press(screen.getByLabelText("Como funciona"));
+    fireEvent.press(screen.getByLabelText("Gerenciar notificações"));
+    fireEvent.press(screen.getByLabelText("Ler Política de Privacidade e Termos de Uso"));
+
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Inicio", { screen: "SugerirHospital" });
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Onboarding");
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Notificacoes");
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Privacidade");
   });
 });

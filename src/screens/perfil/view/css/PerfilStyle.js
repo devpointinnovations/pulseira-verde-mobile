@@ -1,119 +1,106 @@
 import { StyleSheet } from "react-native";
 import { colors, typography, spacing, radii } from "../../../../theme";
 
-// E6-02: cores hardcoded migradas para os tokens do Design System v2.0.
+// Layout novo (Open Design): título grande, grupos em cartão com linhas de menu.
 export default StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
 
-  header: {
+  titulo: {
+    ...typography.displayMd,
+    color: colors.onSurface,
     paddingHorizontal: spacing.s4,
-    paddingVertical: spacing.s3 + 2,
-    backgroundColor: colors.surfaceContainerLowest,
-    borderBottomWidth: 1,
-    borderColor: colors.outlineVariant,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    paddingTop: spacing.s4,
+    paddingBottom: spacing.s2,
   },
-  headerTitle: { ...typography.titleLg, color: colors.onSurface },
 
-  content: { padding: spacing.s4 },
+  content: { padding: spacing.s4, paddingBottom: spacing.s8 },
 
-  card: {
+  secao: {
+    ...typography.titleMd,
+    color: colors.onSurfaceVariant,
+    marginTop: spacing.s5,
+    marginBottom: spacing.s2,
+  },
+
+  grupo: {
     backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radii.lg,
-    padding: spacing.s5,
-    marginBottom: spacing.s4,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
-  },
-  cardTitle: { ...typography.titleLg, color: colors.onSurface, marginBottom: spacing.s3 },
-
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     marginBottom: spacing.s3,
   },
-  avatarText: { color: colors.onPrimary, fontSize: 26, fontWeight: "700" },
-  userName: { ...typography.titleLg, color: colors.onSurface },
+
+  conta: { flexDirection: "row", alignItems: "center", gap: spacing.s4, padding: spacing.s4 },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: colors.onPrimaryContainer, fontSize: 22, fontWeight: "800" },
+  userName: { ...typography.titleLg, color: colors.onSurface, fontWeight: "700" },
   userEmail: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
 
-  row: {
+  linha: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.s3,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.outlineVariant,
+    gap: spacing.s4,
+    padding: spacing.s4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outlineVariant,
+    minHeight: 64,
   },
-  rowLabel: { ...typography.bodyLg, color: colors.onSurface, fontWeight: "500" },
-  rowValue: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  linhaUltima: { borderBottomWidth: 0 },
+  linhaIcone: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linhaIconePerigo: { backgroundColor: colors.errorContainer },
+  linhaTextos: { flex: 1 },
+  linhaTitulo: { ...typography.titleMd, color: colors.onSurface },
+  linhaSubtitulo: { ...typography.bodyMd, color: colors.onSurfaceVariant },
 
-  semAcesso: { alignItems: "center", paddingVertical: spacing.s5 },
-  semAcessoTitle: { ...typography.titleLg, color: colors.onSurface, marginTop: spacing.s3, marginBottom: spacing.s2 },
+  semAcesso: { alignItems: "center", padding: spacing.s5 },
+  semAcessoTitle: { ...typography.titleLg, color: colors.onSurface, marginBottom: spacing.s2 },
   semAcessoText: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: "center", marginBottom: spacing.s4 },
   semAcessoActions: {
     flexDirection: "row",
     gap: spacing.s3,
     alignSelf: "stretch",
   },
-  actionButton: {
-    flex: 1,
-    marginTop: 0,
-  },
+  actionButton: { flex: 1 },
 
   button: {
     backgroundColor: colors.primary,
-    borderRadius: radii.md,
+    borderRadius: radii.full,
     paddingVertical: spacing.s3,
     paddingHorizontal: spacing.s4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.s2,
-    marginTop: spacing.s2,
     minHeight: 48,
   },
   buttonSecondary: {
     backgroundColor: colors.surfaceContainerHigh,
-    borderRadius: radii.md,
+    borderRadius: radii.full,
     paddingVertical: spacing.s3,
     paddingHorizontal: spacing.s4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.s2,
-    marginTop: spacing.s2,
     minHeight: 48,
   },
   buttonText: { color: colors.onPrimary, ...typography.bodyLg, fontWeight: "600" },
   buttonTextSecondary: { color: colors.onSurface, ...typography.bodyLg, fontWeight: "600" },
 
-  dangerButton: {
-    backgroundColor: colors.errorContainer,
-    borderRadius: radii.md,
-    paddingVertical: spacing.s3,
-    paddingHorizontal: spacing.s4,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.s2,
-    marginTop: spacing.s2,
-    minHeight: 48,
-  },
-  dangerButtonText: { color: colors.onErrorContainer, ...typography.bodyLg, fontWeight: "600" },
-
-  status: { borderRadius: radii.xs, paddingHorizontal: spacing.s2, paddingVertical: 3 },
-  statusAtivo: { backgroundColor: colors.successBg },
-  statusAtivoText: { color: colors.onSecondary, ...typography.labelMd, fontWeight: "700" },
-  statusInativo: { backgroundColor: colors.surfaceContainerHigh },
-  statusInativoText: { color: colors.onSurfaceVariant, ...typography.labelMd, fontWeight: "700" },
-
-  link: { color: colors.primary, ...typography.bodyMd, fontWeight: "600" },
-
-  footerNote: { ...typography.bodySm, color: colors.onSurfaceVariant, marginTop: spacing.s3, lineHeight: 17 },
+  footerNote: { ...typography.bodySm, color: colors.onSurfaceVariant, marginBottom: spacing.s3, lineHeight: 17 },
 });
