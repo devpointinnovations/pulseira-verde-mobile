@@ -79,7 +79,8 @@ async function paraWebp(pagina, png) {
   return Buffer.from(dataUrl.split(",")[1], "base64");
 }
 
-(async () => {
+// Sem catch de propósito: um erro aqui derruba o script com a pilha, que é o que se quer ver.
+void (async () => {
   const navegador = await chromium.launch();
   const pagina = await navegador.newPage();
   for (const [variante, tamanho, destino] of SAIDAS) {

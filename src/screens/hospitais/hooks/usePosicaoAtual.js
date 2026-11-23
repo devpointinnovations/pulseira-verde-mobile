@@ -19,7 +19,8 @@ export function usePosicaoAtual() {
       }
     };
 
-    (async () => {
+    // O try/catch de dentro trata toda falha: a promessa não tem o que rejeitar.
+    void (async () => {
       try {
         const { granted } = await Location.getForegroundPermissionsAsync();
         if (!granted) {
