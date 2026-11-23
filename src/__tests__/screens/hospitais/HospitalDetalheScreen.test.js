@@ -132,6 +132,17 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
     });
   });
 
+  test("'Compartilhar' sem nota suficiente manda só o nome", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue({ ...INDICADORES, indicadoresDisponiveis: false });
+    const share = jest.spyOn(Share, "share").mockResolvedValue({});
+    renderizar();
+    await screen.findByText("Hospital Central");
+
+    fireEvent.press(screen.getByLabelText("Compartilhar"));
+
+    expect(share).toHaveBeenCalledWith({ message: "Hospital Central. Veja a nota e o tempo de espera no Pulseira Verde." });
+  });
+
   test("com visita manual ativa no mesmo hospital, exibe o cronômetro sem crashar", async () => {
     // Esta é exatamente a navegação que antes derrubava o app: check-in feito com
     // sucesso -> HospitaisScreen navega para cá -> tela carrega com visita já ativa.

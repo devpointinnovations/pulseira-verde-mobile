@@ -140,6 +140,21 @@ describe("HospitaisScreen (E1-03) — lista, visita ativa e atalhos", () => {
       expect(screen.getByText(/· 1,1 km$/)).toBeTruthy();
     });
 
+    test("com GPS, hospital sem coordenada vai para o fim da lista, sem distância", async () => {
+      const SEM_LUGAR = { id: "hD", nome: "Hospital D", tipo: "PUBLICO", categoria: "HOSPITAL" };
+      CatalogoLocal.lerCopiaGuardada.mockResolvedValue([SEM_LUGAR, LONGE_C, PERTO_B]);
+      comGps();
+      renderizar();
+
+      await waitFor(() =>
+        expect(
+          within(screen.getByTestId("lista-hospitais"))
+            .getAllByText(/^Hospital [BCD]$/)
+            .map((el) => el.props.children)
+        ).toEqual(["Hospital B", "Hospital C", "Hospital D"])
+      );
+    });
+
     test("'Até 5 km' deixa só os hospitais a até 5 km", async () => {
       comGps();
       renderizar();
