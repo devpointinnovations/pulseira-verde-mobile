@@ -20,7 +20,7 @@ import {
 import { formatarDistancia, haversineMetros } from "../../../utils/distancia";
 import { useHospitaisMapa } from "../../hospitais/hooks/useHospitais";
 import { CSChip, CSHospitalCard, CSIconButton, CSOptionSheet } from "../../../components";
-import { colors, typography, spacing, radii, shadows } from "../../../theme";
+import { colors, typography, spacing, radii, shadows, fontes } from "../../../theme";
 
 // F-07: filtro geo por raio. "Todos" mostra o catálogo completo; os demais dependem do
 // GPS e são calculados no aparelho, sobre a cópia do catálogo (M-062).
@@ -661,8 +661,8 @@ const styles = StyleSheet.create({
   title: { ...typography.titleMd, color: colors.onSurface, marginBottom: spacing.s2 },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.s2 },
   infoText: { color: colors.onSurfaceVariant, ...typography.bodyMd },
-  infoSubText: { color: colors.onSurfaceVariant, fontSize: 13, marginTop: 2 },
-  errorText: { color: colors.error, marginTop: spacing.s3, fontSize: 13 },
+  infoSubText: { fontFamily: fontes.texto, color: colors.onSurfaceVariant, fontSize: 13, marginTop: 2 },
+  errorText: { fontFamily: fontes.texto, color: colors.error, marginTop: spacing.s3, fontSize: 13 },
   retryButton: {
     marginTop: spacing.s3,
     alignSelf: "flex-start",
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: "center",
   },
-  retryText: { color: colors.onPrimary, fontWeight: "600" },
+  retryText: { fontFamily: fontes.texto, color: colors.onPrimary, fontWeight: "600" },
   centerButton: {
     marginTop: spacing.s3,
     alignSelf: "flex-start",
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: "center",
   },
-  centerText: { color: colors.onPrimary, fontWeight: "600" },
+  centerText: { fontFamily: fontes.texto, color: colors.onPrimary, fontWeight: "600" },
   markerDot: {
     width: 12,
     height: 12,

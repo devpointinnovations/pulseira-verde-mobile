@@ -2,7 +2,7 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, ShieldCheck } from "lucide-react-native";
-import { colors, typography, spacing, radii } from "../../../theme";
+import { colors, typography, spacing, radii, fontes } from "../../../theme";
 import {
   abrirLinkLegal,
   EMAIL_PRIVACIDADE,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: colors.outlineVariant,
   },
   backBtn: { marginRight: spacing.s3, minHeight: 48, minWidth: 48, justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: colors.onSurface },
+  headerTitle: { fontFamily: fontes.texto, fontSize: 18, fontWeight: "700", color: colors.onSurface },
   content: { padding: spacing.s5 },
   badge: {
     flexDirection: "row",
@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.s5,
   },
   badgeText: {
+    fontFamily: fontes.texto,
     color: colors.onPrimaryContainer,
     fontSize: 14,
     fontWeight: "600",
@@ -147,5 +148,5 @@ const styles = StyleSheet.create({
   },
   link: { minHeight: 48, justifyContent: "center", marginTop: spacing.s2 },
   linkText: { ...typography.bodyMd, color: colors.primary, fontWeight: "600" },
-  version: { fontSize: 12, color: colors.outline, marginTop: spacing.s5, textAlign: "center" },
+  version: { fontFamily: fontes.texto, fontSize: 12, color: colors.outline, marginTop: spacing.s5, textAlign: "center" },
 });

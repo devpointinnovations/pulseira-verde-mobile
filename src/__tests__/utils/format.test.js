@@ -40,15 +40,15 @@ describe("utils/format — duracaoMinutosDesde", () => {
 });
 
 describe("utils/format — formatarDuracao", () => {
-  test("formata de 0 a 59min como 'Nmin'", () => {
-    expect(formatarDuracao(0)).toBe("0min");
-    expect(formatarDuracao(45)).toBe("45min");
+  test("formata de 0 a 59min como 'N min'", () => {
+    expect(formatarDuracao(0)).toBe("0 min");
+    expect(formatarDuracao(45)).toBe("45 min");
   });
 
-  test("formata 1h+ como 'XhYY'", () => {
-    expect(formatarDuracao(60)).toBe("1h00");
-    expect(formatarDuracao(125)).toBe("2h05");
-    expect(formatarDuracao(90)).toBe("1h30");
+  test("formata 1h+ como 'X h YY'", () => {
+    expect(formatarDuracao(60)).toBe("1 h 00");
+    expect(formatarDuracao(125)).toBe("2 h 05");
+    expect(formatarDuracao(90)).toBe("1 h 30");
   });
 
   test("retorna null para valores inválidos", () => {
@@ -59,7 +59,7 @@ describe("utils/format — formatarDuracao", () => {
   });
 
   test("trata durações negativas como zero", () => {
-    expect(formatarDuracao(-10)).toBe("0min");
+    expect(formatarDuracao(-10)).toBe("0 min");
   });
 });
 

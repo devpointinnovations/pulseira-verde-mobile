@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, ChevronDown, MapPinCheck, WifiOff } from "lucide-react-native";
 import { CSButton, CSEmptyState, CSIconButton } from "../../../components";
-import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { colors, radii, spacing, typography, fontes } from "../../../theme/tokens";
 import { useHospital } from "../../hospitais/hooks/useHospitais";
 import { useEncerrarVisitaManual } from "../hooks/useMutacoesVisita";
 import { useVisitaAtivaDaTela } from "../hooks/useVisitaAtivaDaTela";
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: spacing.s5,
   },
-  minutos: { fontSize: 56, lineHeight: 64, fontWeight: "800", color: colors.onPrimary },
+  minutos: { fontFamily: fontes.texto, fontSize: 56, lineHeight: 64, fontWeight: "800", color: colors.onPrimary },
   minutosRotulo: { ...typography.bodyLg, color: colors.onPrimary },
   hospital: {
     ...typography.headlineSm,

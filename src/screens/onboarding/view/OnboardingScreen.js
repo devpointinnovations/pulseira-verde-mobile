@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, Clock, Hospital, MapPin, MessageCircleHeart, ShieldCheck, Star } from "lucide-react-native";
 import CSButton from "../../../components/CSButton";
-import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { colors, radii, spacing, typography, fontes } from "../../../theme/tokens";
 import { concluirOnboarding } from "../service/OnboardingService";
 import { iniciarGeofencing } from "../../visitas/service/GeofencingTaskService";
 import { solicitarPermissaoNotificacao } from "../../../services/NotificacaoPermissao";
@@ -201,8 +201,8 @@ const styles = StyleSheet.create({
   destaqueTopo: { top: 36, right: 8 },
   destaqueBase: { bottom: 40, left: 4 },
   destaqueTexto: { ...typography.bodyMd, color: colors.onSurface, fontWeight: "600" },
-  titulo: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.6, color: colors.onSurface, marginBottom: spacing.s3 },
-  texto: { fontSize: 17, lineHeight: 26, color: colors.onSurfaceVariant },
+  titulo: { fontFamily: fontes.texto, fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.6, color: colors.onSurface, marginBottom: spacing.s3 },
+  texto: { fontFamily: fontes.texto, fontSize: 17, lineHeight: 26, color: colors.onSurfaceVariant },
   porque: {
     flexDirection: "row",
     gap: 10,
