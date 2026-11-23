@@ -162,7 +162,7 @@ describe("App — Bottom Tabs (E6-01)", () => {
     render(<App />);
     await screen.findByText("Início");
 
-    fireEvent.press(screen.getByLabelText("Ver hospitais no mapa"));
+    fireEvent.press(screen.getByLabelText("Abrir o mapa dos hospitais"));
     expect(await screen.findByText("Mapa de Geolocalização")).toBeOnTheScreen();
 
     fireEvent.press(screen.getByLabelText("Ranking — melhores hospitais"));

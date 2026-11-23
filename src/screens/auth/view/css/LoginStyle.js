@@ -1,5 +1,5 @@
 import {StyleSheet} from "react-native";
-import {colors, shadows, spacing, radii, typography} from "../../../../theme";
+import { colors, shadows, spacing, radii, typography, fontes } from "../../../../theme";
 
 const styles = StyleSheet.create({
     container: {
@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
         width: "100%",
     },
     label: {
+        fontFamily: fontes.texto,
         fontSize: 12,
         fontWeight: "700",
         color: colors.onSurfaceVariant,
@@ -80,6 +81,7 @@ const styles = StyleSheet.create({
         marginRight: spacing.s3,
     },
     input: {
+        fontFamily: fontes.texto,
         flex: 1,
         color: colors.onSurface,
         fontSize: 15,
@@ -108,10 +110,12 @@ const styles = StyleSheet.create({
         borderColor: colors.primary,
     },
     optionText: {
+        fontFamily: fontes.texto,
         fontSize: 13,
         color: colors.onSurfaceVariant,
     },
     link: {
+        fontFamily: fontes.texto,
         fontSize: 13,
         color: colors.primary,
         fontWeight: "600",
@@ -128,6 +132,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     loginButtonText: {
+        fontFamily: fontes.texto,
         color: colors.onPrimary,
         fontSize: 16,
         fontWeight: "700",
@@ -139,11 +144,13 @@ const styles = StyleSheet.create({
         minHeight: 48,
     },
     semContaText: {
+        fontFamily: fontes.texto,
         fontSize: 14,
         fontWeight: "600",
         color: colors.primary,
     },
     semContaHelper: {
+        fontFamily: fontes.texto,
         fontSize: 12,
         color: colors.onSurfaceVariant,
         textAlign: "center",
@@ -162,15 +169,18 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     complianceText: {
+        fontFamily: fontes.texto,
         flex: 1,
         fontSize: 11,
         color: colors.onSurfaceVariant,
         lineHeight: 16,
     },
     complianceHighlight: {
+        fontFamily: fontes.texto,
         fontWeight: "700",
     },
     simpleFooterLink: {
+        fontFamily: fontes.texto,
         fontSize: 12,
         color: colors.onSurfaceVariant,
     },

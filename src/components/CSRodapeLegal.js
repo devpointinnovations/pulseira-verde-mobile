@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Lock, ShieldCheck, Users } from "lucide-react-native";
-import { colors, radii, spacing } from "../theme/tokens";
+import { colors, radii, spacing, fontes } from "../theme/tokens";
 import { abrirLinkLegal, URL_TERMOS_USO } from "../config/linksLegais";
 
 /**
@@ -77,12 +77,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   complianceText: {
+    fontFamily: fontes.texto,
     flex: 1,
     fontSize: 11,
     color: colors.onSurfaceVariant,
     lineHeight: 16,
   },
   complianceHighlight: {
+    fontFamily: fontes.texto,
     fontWeight: "700",
   },
   securityBadges: {
@@ -100,6 +102,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badgeText: {
+    fontFamily: fontes.texto,
     fontSize: 11,
     fontWeight: "600",
     color: colors.onSurfaceVariant,
@@ -112,6 +115,7 @@ const styles = StyleSheet.create({
     gap: spacing.s3,
   },
   link: {
+    fontFamily: fontes.texto,
     fontWeight: "700",
     color: colors.primary,
   },

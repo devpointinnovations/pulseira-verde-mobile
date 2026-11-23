@@ -15,7 +15,11 @@ import './src/screens/visitas/service/GeofencingTaskService';
 // registra o observador avisado quando uma entrada ou saída guardada chega ao servidor.
 import './src/services/EnvioFilaSegundoPlano';
 
+import {carregarFontes} from './src/theme/carregarFontes';
 import App from './App';
+
+// Inter do layout novo: no navegador declara a fonte; no Android já vem no APK.
+carregarFontes();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

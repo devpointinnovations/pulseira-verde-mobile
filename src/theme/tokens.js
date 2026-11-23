@@ -71,21 +71,29 @@ export const gradients = {
   background: ["#F4F7F5", "#E7EEE9"],
 };
 
+/**
+ * Fonte do layout novo: Inter. No Android ela é registrada como a família "Inter" no
+ * MainApplication (res/font/inter.xml traz os pesos 400 a 800); no navegador, carregada por
+ * `carregarFontes.web.js`. Todo estilo de texto leva a família, porque o React Native não
+ * tem uma fonte padrão para o app inteiro.
+ */
+export const fontes = { texto: "Inter" };
+
 export const typography = {
-  displayLg: { fontSize: 32, lineHeight: 40, fontWeight: "800", letterSpacing: -0.5 },
-  displayMd: { fontSize: 28, lineHeight: 36, fontWeight: "800", letterSpacing: -0.5 },
-  displaySm: { fontSize: 24, lineHeight: 32, fontWeight: "700", letterSpacing: -0.3 },
-  headlineMd: { fontSize: 22, lineHeight: 30, fontWeight: "700", letterSpacing: -0.3 },
-  headlineSm: { fontSize: 20, lineHeight: 28, fontWeight: "700", letterSpacing: -0.2 },
-  titleLg: { fontSize: 18, lineHeight: 26, fontWeight: "600", letterSpacing: -0.2 },
-  titleMd: { fontSize: 16, lineHeight: 24, fontWeight: "600", letterSpacing: 0 },
-  bodyLg: { fontSize: 16, lineHeight: 24, fontWeight: "400", letterSpacing: 0 },
-  bodyMd: { fontSize: 14, lineHeight: 21, fontWeight: "400", letterSpacing: 0 },
-  bodySm: { fontSize: 12, lineHeight: 18, fontWeight: "400", letterSpacing: 0 },
-  labelLg: { fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1 },
-  labelMd: { fontSize: 12, lineHeight: 16, fontWeight: "600", letterSpacing: 0.5 },
-  labelSm: { fontSize: 11, lineHeight: 16, fontWeight: "600", letterSpacing: 1 },
-  numeric: { fontWeight: "700", fontVariant: ["tabular-nums"] },
+  displayLg: { fontFamily: fontes.texto, fontSize: 32, lineHeight: 40, fontWeight: "800", letterSpacing: -0.5 },
+  displayMd: { fontFamily: fontes.texto, fontSize: 28, lineHeight: 36, fontWeight: "800", letterSpacing: -0.5 },
+  displaySm: { fontFamily: fontes.texto, fontSize: 24, lineHeight: 32, fontWeight: "700", letterSpacing: -0.3 },
+  headlineMd: { fontFamily: fontes.texto, fontSize: 22, lineHeight: 30, fontWeight: "700", letterSpacing: -0.3 },
+  headlineSm: { fontFamily: fontes.texto, fontSize: 20, lineHeight: 28, fontWeight: "700", letterSpacing: -0.2 },
+  titleLg: { fontFamily: fontes.texto, fontSize: 18, lineHeight: 26, fontWeight: "600", letterSpacing: -0.2 },
+  titleMd: { fontFamily: fontes.texto, fontSize: 16, lineHeight: 24, fontWeight: "600", letterSpacing: 0 },
+  bodyLg: { fontFamily: fontes.texto, fontSize: 16, lineHeight: 24, fontWeight: "400", letterSpacing: 0 },
+  bodyMd: { fontFamily: fontes.texto, fontSize: 14, lineHeight: 21, fontWeight: "400", letterSpacing: 0 },
+  bodySm: { fontFamily: fontes.texto, fontSize: 12, lineHeight: 18, fontWeight: "400", letterSpacing: 0 },
+  labelLg: { fontFamily: fontes.texto, fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1 },
+  labelMd: { fontFamily: fontes.texto, fontSize: 12, lineHeight: 16, fontWeight: "600", letterSpacing: 0.5 },
+  labelSm: { fontFamily: fontes.texto, fontSize: 11, lineHeight: 16, fontWeight: "600", letterSpacing: 1 },
+  numeric: { fontFamily: fontes.texto, fontWeight: "700", fontVariant: ["tabular-nums"] },
 };
 
 export const spacing = {

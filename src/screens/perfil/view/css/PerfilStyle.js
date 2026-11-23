@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { colors, typography, spacing, radii } from "../../../../theme";
+import { colors, typography, spacing, radii, fontes } from "../../../../theme";
 
 // Layout novo (Open Design): título grande, grupos em cartão com linhas de menu.
 export default StyleSheet.create({
@@ -40,7 +40,7 @@ export default StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: colors.onPrimaryContainer, fontSize: 22, fontWeight: "800" },
+  avatarText: { fontFamily: fontes.texto, color: colors.onPrimaryContainer, fontSize: 22, fontWeight: "800" },
   userName: { ...typography.titleLg, color: colors.onSurface, fontWeight: "700" },
   userEmail: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginTop: 2 },
 
