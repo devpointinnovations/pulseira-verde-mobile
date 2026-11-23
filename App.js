@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {BottomTabBar, createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {NavigationContainer} from "@react-navigation/native";
@@ -33,6 +33,8 @@ import { configurarQueryNoApp } from "./src/core/query/setupQueryClient";
 import { hidratarSessao } from "./src/core/stores/sessaoStore";
 import VisitaAtivaSync from "./src/screens/visitas/hooks/VisitaAtivaSync";
 import AtualizacaoObrigatoria from "./src/screens/atualizacao/AtualizacaoObrigatoria";
+import OnboardingScreen from "./src/screens/onboarding/view/OnboardingScreen";
+import { onboardingConcluido } from "./src/screens/onboarding/service/OnboardingService";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -220,6 +222,14 @@ export default function App() {
     // navegação montar. Estes refs seguram o destino até o NavigationContainer ficar pronto.
     const navegacaoPronta = useRef(false);
     const feedbackPendente = useRef(null);
+    // Primeira tela: a apresentação (onboarding) até a pessoa concluir ou pular; `null`
+    // enquanto a leitura do aparelho não volta, para o app não piscar as abas antes.
+    const [telaInicial, setTelaInicial] = useState(null);
+
+    useEffect(() => {
+        // `onboardingConcluido` não rejeita: falha na leitura conta como concluída.
+        void onboardingConcluido().then((concluido) => setTelaInicial(concluido ? "Tabs" : "Onboarding"));
+    }, []);
 
     const abrirFeedback = useCallback((params) => {
         if (navegacaoPronta.current && navigationRef.current) {
@@ -318,25 +328,28 @@ export default function App() {
             <SafeAreaProvider>
                 {/* APP-03: abaixo da versão mínima, a navegação dá lugar à tela de atualização. */}
                 <AtualizacaoObrigatoria>
-                    <NavigationContainer
-                        ref={navigationRef}
-                        onReady={() => {
-                            navegacaoPronta.current = true;
-                            // Despacha o feedback que chegou por cold start antes de a navegação montar.
-                            if (feedbackPendente.current) {
-                                navigationRef.current?.navigate("Feedback", {
-                                    screen: "FeedbackForm",
-                                    params: feedbackPendente.current,
-                                });
-                                feedbackPendente.current = null;
-                            }
-                        }}
-                    >
-                        <Stack.Navigator screenOptions={{ headerShown: false }}>
-                            <Stack.Screen name="Tabs" component={Tabs} />
-                            <Stack.Screen name="Feedback" component={FeedbackStack} />
-                        </Stack.Navigator>
-                    </NavigationContainer>
+                    {telaInicial ? (
+                        <NavigationContainer
+                            ref={navigationRef}
+                            onReady={() => {
+                                navegacaoPronta.current = true;
+                                // Despacha o feedback que chegou por cold start antes de a navegação montar.
+                                if (feedbackPendente.current) {
+                                    navigationRef.current?.navigate("Feedback", {
+                                        screen: "FeedbackForm",
+                                        params: feedbackPendente.current,
+                                    });
+                                    feedbackPendente.current = null;
+                                }
+                            }}
+                        >
+                            <Stack.Navigator initialRouteName={telaInicial} screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                                <Stack.Screen name="Tabs" component={Tabs} />
+                                <Stack.Screen name="Feedback" component={FeedbackStack} />
+                            </Stack.Navigator>
+                        </NavigationContainer>
+                    ) : null}
                 </AtualizacaoObrigatoria>
             </SafeAreaProvider>
         </QueryClientProvider>
