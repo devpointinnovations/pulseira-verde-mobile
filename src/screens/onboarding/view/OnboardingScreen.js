@@ -70,7 +70,12 @@ export default function OnboardingScreen({ navigation }) {
 
   const concluir = async () => {
     await concluirOnboarding();
-    navigation.reset({ index: 0, routes: [{ name: "Tabs" }] });
+    // Aberta pelo "Como funciona" do Perfil, volta para lá; na primeira abertura, vai às abas.
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: "Tabs" }] });
+    }
   };
 
   const avancar = () => {

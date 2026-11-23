@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Bell, ChevronRight, Hospital, LogIn, LogOut, MapPin, ShieldCheck, Trash2, UserPlus } from "lucide-react-native";
+import { Bell, ChevronRight, CircleHelp, Hospital, LogIn, LogOut, MapPin, ShieldCheck, Trash2, UserPlus } from "lucide-react-native";
 import PerfilService from "../service/PerfilService";
 import LoginService from "../../auth/service/LoginService";
 import { useSessao } from "../../../core/stores/sessaoStore";
@@ -262,6 +262,13 @@ export default function PerfilScreen({ navigation }) {
                 titulo="Sugerir um hospital"
                 subtitulo="Não achou o seu? Avise a gente"
                 onPress={() => navigation?.navigate?.("Inicio", { screen: "SugerirHospital" })}
+              />
+              <LinhaMenu
+                icone={CircleHelp}
+                titulo="Como funciona"
+                subtitulo="Rever a apresentação do app"
+                onPress={() => navigation?.navigate?.("Onboarding")}
+                ultima
               />
             </View>
 
