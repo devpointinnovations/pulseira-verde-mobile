@@ -1,39 +1,40 @@
 /**
- * Listagem de hospitais (E1-03) — botão de check-in manual no card.
+ * Início (E1-03, layout novo): mapa no topo, folha "Perto de você" com filtros e a lista.
  *
- * Cobre o outro lado da regressão corrigida em HospitalDetalheScreen: o check-in
- * bem-sucedido aqui navega imediatamente para `HospitalDetalhe` (fazerCheckin,
- * HospitaisScreen.js). Antes da correção, essa navegação caía numa tela que
- * quebrava com "Rendered more hooks than during the previous render" — por isso o
- * usuário via o app fechar sozinho logo ao tocar em "Check-in".
+ * O card não tem mais o botão de check-in (design aprovado, decisão do PO de 23/11/2026):
+ * o check-in manual fica só no detalhe ("Estou aqui agora"). Aqui ficam a lista que sai
+ * do aparelho, a ordem por distância com GPS, o filtro "Até 5 km", o hospital da visita
+ * ativa no topo e os atalhos do mapa, do ranking e do perfil.
  */
 import React from "react";
 import { fireEvent, screen, waitFor, act, within } from "@testing-library/react-native";
 import { renderComProviders } from "../../helpers/renderComProviders";
 import { definirUsuarioDaSessao } from "../../../core/stores/sessaoStore";
 import { Alert } from "react-native";
+import * as Location from "expo-location";
 import HospitaisScreen from "../../../screens/hospitais/view/HospitaisScreen";
 import HospitalService from "../../../screens/hospitais/service/HospitalService";
 import VisitaService from "../../../screens/visitas/service/VisitaService";
-import { ErroSemInternet } from "../../../config/http";
 import CatalogoLocal from "../../../services/CatalogoLocal";
 
 jest.mock("../../../screens/hospitais/service/HospitalService");
 jest.mock("../../../screens/visitas/service/VisitaService");
+
+// utils/mapkit (MapLibre nativo) não roda no Jest: Views no lugar, como nos outros testes do mapa.
+jest.mock("../../../utils/mapkit", () => {
+  const { View } = require("react-native");
+  const stub = ({ children, ...props }) => <View {...props}>{children}</View>;
+  return { __esModule: true, MapView: stub, Camera: stub, MarkerView: stub, ShapeSource: stub, FillLayer: stub, LineLayer: stub };
+});
 jest.mock("../../../services/CatalogoLocal", () => ({
   __esModule: true,
   default: { lerCopiaGuardada: jest.fn(), obterEstabelecimentos: jest.fn(), sincronizarVersao: jest.fn(), conferirSeVencida: jest.fn() },
 }));
 
-// Guarda o callback de foco mais recente para o teste poder simular um segundo
-// foco da aba (ex.: voltar de outra tela) sem desmontar o componente — é
-// exatamente essa segunda chamada que expôs a corrida do achado do code-review.
-let callbackDeFoco = null;
-
+// A aba ganha foco uma vez, ao montar.
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: (callback) => {
     const React = require("react");
-    callbackDeFoco = callback;
     React.useEffect(() => {
       callback();
     }, [callback]);
@@ -49,14 +50,7 @@ function renderizar() {
   return renderComProviders(<HospitaisScreen navigation={NAVEGACAO} />);
 }
 
-/** Simula a aba ganhando foco de novo (ex.: voltar de outra tela), sem remontar. */
-async function refocarTela() {
-  await act(async () => {
-    callbackDeFoco();
-  });
-}
-
-describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", () => {
+describe("HospitaisScreen (E1-03) — lista, visita ativa e atalhos", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Sessão lida do aparelho (anônima): a visita ativa só é consultada depois disso.
@@ -107,170 +101,99 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
     expect(HospitalService.listar).not.toHaveBeenCalled();
   });
 
-  test("check-in bem-sucedido navega para o detalhe do hospital selecionado", async () => {
-    const visita = { id: "v1", hospitalId: "hA", status: "EM_ATENDIMENTO" };
-    VisitaService.checkin.mockImplementation(async () => {
-      // Depois do check-in, o servidor passa a responder com a visita nova.
-      VisitaService.buscarAtiva.mockResolvedValue({ visita: { ...visita, origem: "MANUAL" } });
-      return visita;
+  describe("GPS, distância e filtro 'Até 5 km'", () => {
+    // Hospital A a ~3,3 km da pessoa; Hospital B a ~1,1 km; Hospital C a ~11 km.
+    const PESSOA = { latitude: -15.78, longitude: -47.89 };
+    const PERTO_A = { ...HOSPITAL_A, localizacao: { latitude: -15.75, longitude: -47.89 } };
+    const PERTO_B = { ...HOSPITAL_B, localizacao: { latitude: -15.79, longitude: -47.89 } };
+    const LONGE_C = { id: "hC", nome: "Hospital C", tipo: "PUBLICO", categoria: "HOSPITAL", localizacao: { latitude: -15.68, longitude: -47.89 } };
+
+    function comGps() {
+      Location.getForegroundPermissionsAsync.mockResolvedValue({ granted: true });
+      Location.getLastKnownPositionAsync.mockResolvedValue(null);
+      Location.getCurrentPositionAsync.mockResolvedValue({ coords: PESSOA });
+    }
+
+    function nomesNaLista() {
+      return within(screen.getByTestId("lista-hospitais"))
+        .getAllByText(/^Hospital [ABC]$/)
+        .map((el) => el.props.children);
+    }
+
+    beforeEach(() => {
+      CatalogoLocal.lerCopiaGuardada.mockResolvedValue([PERTO_A, PERTO_B, LONGE_C]);
+      CatalogoLocal.obterEstabelecimentos.mockResolvedValue([PERTO_A, PERTO_B, LONGE_C]);
     });
 
-    renderizar();
-    await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-
-    await waitFor(() => {
-      expect(VisitaService.checkin).toHaveBeenCalledWith({ hospitalId: "hA", origem: "MANUAL" });
-    });
-    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("HospitalDetalhe", { id: "hA" });
-  });
-
-  test("após o check-in, o card do hospital ativo passa a oferecer 'ver' e os demais ficam desabilitados", async () => {
-    const visita = { id: "v1", hospitalId: "hA", status: "EM_ATENDIMENTO" };
-    VisitaService.checkin.mockImplementation(async () => {
-      // Depois do check-in, o servidor passa a responder com a visita nova.
-      VisitaService.buscarAtiva.mockResolvedValue({ visita: { ...visita, origem: "MANUAL" } });
-      return visita;
+    // clearAllMocks não desfaz o GPS ligado aqui; sem isto ele vazaria para os testes seguintes.
+    afterEach(() => {
+      Location.getForegroundPermissionsAsync.mockReset();
+      Location.getCurrentPositionAsync.mockReset();
+      Location.getLastKnownPositionAsync.mockReset();
     });
 
-    renderizar();
-    await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-    await waitFor(() => expect(NAVEGACAO.navigate).toHaveBeenCalled());
+    test("com GPS, a lista vai do mais perto ao mais longe e mostra a distância no card", async () => {
+      comGps();
+      renderizar();
 
-    expect(await screen.findByLabelText("Hospital A — ver check-in ativo")).toBeTruthy();
-    expect(screen.getByLabelText("Fazer check-in em Hospital B")).toBeDisabled();
-  });
-
-  test("um refoco com erro real (não de conectividade) ainda limpa a visita ativa", async () => {
-    // Outra metade do achado do code-review: preservar o estado só faz sentido para
-    // falha de conectividade. Um erro de verdade (sessão expirada, 500) precisa
-    // continuar zerando — senão um placeholder otimista obsoleto travaria o guard
-    // para sempre, impedindo check-in em qualquer hospital.
-    VisitaService.buscarAtiva.mockResolvedValue({
-      visita: { id: "v1", hospitalId: "hA", origem: "MANUAL" },
-    });
-    renderizar();
-    expect(await screen.findByLabelText("Hospital A — ver check-in ativo")).toBeTruthy();
-
-    VisitaService.buscarAtiva.mockRejectedValue(new Error("Sessão expirada. Faça login novamente."));
-    await refocarTela();
-
-    expect(await screen.findByLabelText("Fazer check-in em Hospital A")).not.toBeDisabled();
-  });
-
-  test("tocar em 'ver' no hospital com visita já ativa apenas reabre o detalhe (idempotente)", async () => {
-    VisitaService.buscarAtiva.mockResolvedValue({
-      visita: { id: "v1", hospitalId: "hA", origem: "MANUAL" },
+      await waitFor(() => expect(nomesNaLista()).toEqual(["Hospital B", "Hospital A", "Hospital C"]));
+      expect(screen.getByText(/· 1,1 km$/)).toBeTruthy();
     });
 
-    renderizar();
-    fireEvent.press(await screen.findByLabelText("Hospital A — ver check-in ativo"));
+    test("com GPS, hospital sem coordenada vai para o fim da lista, sem distância", async () => {
+      const SEM_LUGAR = { id: "hD", nome: "Hospital D", tipo: "PUBLICO", categoria: "HOSPITAL" };
+      CatalogoLocal.lerCopiaGuardada.mockResolvedValue([SEM_LUGAR, LONGE_C, PERTO_B]);
+      comGps();
+      renderizar();
 
-    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("HospitalDetalhe", { id: "hA" });
-    expect(VisitaService.checkin).not.toHaveBeenCalled();
-  });
-
-  test("conflito de geofence (409) deixa escolher o hospital correto e refaz o check-in", async () => {
-    const conflito = Object.assign(new Error("Encontramos mais de um hospital aqui."), {
-      status: 409,
-      data: {
-        message: "Encontramos mais de um hospital aqui.",
-        candidatos: [
-          { hospitalId: "hA", nome: "Hospital A" },
-          { hospitalId: "hB", nome: "Hospital B" },
-        ],
-      },
-    });
-    VisitaService.checkin
-      .mockRejectedValueOnce(conflito)
-      .mockResolvedValueOnce({ id: "v1", hospitalId: "hB", status: "EM_ATENDIMENTO" });
-
-    renderizar();
-    await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-    const [, , botoes] = Alert.alert.mock.calls[0];
-    const botaoHospitalB = botoes.find((b) => b.text === "Hospital B");
-    await act(async () => {
-      botaoHospitalB.onPress();
-    });
-
-    await waitFor(() => {
-      expect(VisitaService.checkin).toHaveBeenLastCalledWith({ hospitalId: "hB", origem: "MANUAL" });
-    });
-    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("HospitalDetalhe", { id: "hB" });
-  });
-
-  test("erro genérico no check-in mostra alerta e não navega", async () => {
-    VisitaService.checkin.mockRejectedValue(new Error("Backend indisponível."));
-
-    renderizar();
-    await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-
-    await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith("Check-in", "Backend indisponível.");
-    });
-    expect(NAVEGACAO.navigate).not.toHaveBeenCalled();
-  });
-
-  test("check-in sem internet é enfileirado (OPS-05): alerta não soa como falha, e a tela não navega para um detalhe que dependeria da mesma rede indisponível", async () => {
-    VisitaService.checkin.mockRejectedValue(
-      Object.assign(new Error("Sem conexão com a internet. O registro foi guardado e será enviado assim que a conexão voltar."), {
-        enfileirado: true,
-      })
-    );
-
-    renderizar();
-    await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-
-    await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Sem conexão",
-        "Sem conexão com a internet. O registro foi guardado e será enviado assim que a conexão voltar."
+      await waitFor(() =>
+        expect(
+          within(screen.getByTestId("lista-hospitais"))
+            .getAllByText(/^Hospital [BCD]$/)
+            .map((el) => el.props.children)
+        ).toEqual(["Hospital B", "Hospital C", "Hospital D"])
       );
     });
-    expect(NAVEGACAO.navigate).not.toHaveBeenCalled();
 
-    // O ponto real deste teste: mesmo sem confirmação do servidor, o check-in
-    // enfileirado precisa armar o guard de "uma visita por vez" imediatamente. Sem
-    // isso, o card do Hospital B ficaria destravado e um segundo toque, ainda
-    // offline, enfileiraria um segundo check-in — dois eventos que o backend
-    // resolveria por "visita ativa do dispositivo", descartando um deles em silêncio
-    // quando a fila enviasse os dois.
-    expect(screen.getByLabelText("Fazer check-in em Hospital B")).toBeDisabled();
-    expect(VisitaService.checkin).toHaveBeenCalledTimes(1);
+    test("'Até 5 km' deixa só os hospitais a até 5 km", async () => {
+      comGps();
+      renderizar();
+      await waitFor(() => expect(nomesNaLista()).toEqual(["Hospital B", "Hospital A", "Hospital C"]));
+
+      fireEvent.press(screen.getByText("Até 5 km"));
+
+      expect(nomesNaLista()).toEqual(["Hospital B", "Hospital A"]);
+    });
+
+    test("sem permissão de localização, a lista segue a ordem do catálogo e 'Até 5 km' pede a localização", async () => {
+      Location.getForegroundPermissionsAsync.mockResolvedValue({ granted: false });
+      renderizar();
+      await screen.findByText("Hospital A");
+
+      expect(nomesNaLista()).toEqual(["Hospital A", "Hospital B", "Hospital C"]);
+      expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+
+      fireEvent.press(screen.getByText("Até 5 km"));
+      expect(screen.getByText("Sem a sua localização")).toBeTruthy();
+    });
   });
 
-  test("o guard do check-in enfileirado sobrevive a um refoco da aba enquanto ainda offline", async () => {
-    // Achado do code-review sobre o teste anterior: o guard local armado pelo
-    // check-in enfileirado era apagado no PRÓXIMO foco da aba (ex.: voltar do
-    // Ranking) se o aparelho ainda estivesse offline — `buscarAtiva()` é uma
-    // requisição viva, não passa pela fila, e falha do mesmo jeito; o `.catch` de
-    // `atualizarVisitaAtiva` zerava `visitaAtiva` em QUALQUER erro, achando que
-    // "falhou" significava "não há visita ativa".
-    VisitaService.checkin.mockRejectedValue(
-      Object.assign(new Error("Sem conexão com a internet. O registro foi guardado e será enviado assim que a conexão voltar."), {
-        enfileirado: true,
-      })
-    );
-
+  test("o avatar da busca abre o perfil e mostra a inicial de quem entrou", async () => {
+    definirUsuarioDaSessao({ id: "u1", nome: "maria" });
     renderizar();
     await screen.findByText("Hospital A");
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital A"));
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
 
-    // Ainda offline: o refetch da visita ativa ao reganhar foco também falha. Precisa
-    // ser a classe real de conectividade (é o que VisitaService de fato lança) — um
-    // Error genérico não deve ser tratado como "sem dado novo", só como falha real.
-    VisitaService.buscarAtiva.mockRejectedValue(new ErroSemInternet("http://exemplo"));
-    await refocarTela();
+    expect(screen.getByText("M")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Abrir o perfil"));
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Perfil");
+  });
 
-    expect(screen.getByLabelText("Fazer check-in em Hospital B")).toBeDisabled();
-    expect(VisitaService.checkin).toHaveBeenCalledTimes(1);
+  test("o botão de localização do mapa abre o mapa completo", async () => {
+    renderizar();
+    await screen.findByText("Hospital A");
+
+    fireEvent.press(screen.getByLabelText("Abrir o mapa na sua localização"));
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("MapaTela");
   });
 
   describe("hospital do check-in ativo no topo da lista (pedido do PO, 10/09/2026)", () => {
@@ -341,7 +264,7 @@ describe("HospitaisScreen (E1-03) — check-in manual não derruba mais o app", 
       await screen.findByText("Hospital A");
 
       fireEvent.press(screen.getByText("Ver ranking"));
-      fireEvent.press(screen.getByLabelText("Ver hospitais no mapa"));
+      fireEvent.press(screen.getByLabelText("Abrir o mapa dos hospitais"));
 
       expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Ranking");
       expect(NAVEGACAO.navigate).toHaveBeenCalledWith("MapaTela");

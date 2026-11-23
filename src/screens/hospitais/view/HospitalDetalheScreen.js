@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Mail, MapPin, MapPinCheck, Navigation, Phone } from "lucide-react-native";
+import { Mail, MapPin, MapPinCheck, Navigation, Phone, Share2 } from "lucide-react-native";
 import {
   CSButton,
   CSHeader,
@@ -9,7 +9,7 @@ import {
   CSLoading,
   CSRatingStars,
 } from "../../../components";
-import { colors, radii, spacing, typography } from "../../../theme/tokens";
+import { colors, radii, spacing, typography, fontes } from "../../../theme/tokens";
 import { CATEGORIA_LABEL, TIPO_LABEL } from "../../../components/CSHospitalCard";
 import { useHospital, useIndicadoresHospital } from "../hooks/useHospitais";
 import { useEncerrarVisitaManual } from "../../visitas/hooks/useMutacoesVisita";
@@ -166,9 +166,24 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   const email = textoOuNulo(hospital.contato?.email);
   const endereco = [hospital.endereco?.logradouro, hospital.endereco?.cidade].filter(Boolean).join(", ");
 
+  const compartilhar = () => {
+    const nota = temIndicadores ? `, nota ${formatarNota(dadosIndicadores.notaMedia)}` : "";
+    void Share.share({ message: `${hospital.nome}${nota}. Veja a nota e o tempo de espera no Pulseira Verde.` }).catch(
+      () => {}
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <CSHeader title="" onBack={() => navigation.goBack()} />
+      <CSHeader
+        title=""
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <Pressable accessibilityRole="button" accessibilityLabel="Compartilhar" onPress={compartilhar} hitSlop={12}>
+            <Share2 size={22} color={colors.onSurfaceVariant} />
+          </Pressable>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.etiquetas}>
@@ -312,6 +327,7 @@ const styles = StyleSheet.create({
   },
   visitaTitulo: { ...typography.titleMd, color: colors.onPrimaryContainer },
   temporizador: {
+    fontFamily: fontes.texto,
     fontSize: 40,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
@@ -324,9 +340,9 @@ const styles = StyleSheet.create({
   metrica: { flex: 1, borderRadius: 18, padding: spacing.s4, gap: spacing.s1, minHeight: 128 },
   metricaNota: { backgroundColor: colors.surfaceContainerLowest, borderWidth: 1, borderColor: colors.outlineVariant },
   metricaEspera: { backgroundColor: colors.primaryContainer, justifyContent: "space-between" },
-  notaValor: { fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onSurface },
+  notaValor: { fontFamily: fontes.texto, fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onSurface },
   metricaRotulo: { ...typography.bodyMd, color: colors.onSurfaceVariant },
-  esperaValor: { fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onPrimaryContainer },
+  esperaValor: { fontFamily: fontes.texto, fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onPrimaryContainer },
   esperaUnidade: { ...typography.titleLg, color: colors.onPrimaryContainer },
   esperaRotulo: { ...typography.bodyMd, color: colors.onPrimaryContainer },
   transparencia: { ...typography.bodySm, color: colors.onSurfaceVariant },

@@ -15,6 +15,7 @@
  */
 import React from "react";
 import { fireEvent, screen, act, waitFor } from "@testing-library/react-native";
+import { Share } from "react-native";
 import { renderComProviders } from "../../helpers/renderComProviders";
 import { definirUsuarioDaSessao } from "../../../core/stores/sessaoStore";
 import HospitalDetalheScreen from "../../../screens/hospitais/view/HospitalDetalheScreen";
@@ -116,6 +117,30 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
     expect(await screen.findByText("Hospital Central")).toBeTruthy();
     expect(screen.getByText(/Rua das Flores, 100/)).toBeTruthy();
     expect(screen.getByText("24 horas")).toBeTruthy();
+  });
+
+  test("'Compartilhar' manda o nome e a nota do hospital", async () => {
+    const share = jest.spyOn(Share, "share").mockResolvedValue({});
+    renderizar();
+    await screen.findByText("Hospital Central");
+    await waitFor(() => expect(screen.getByText("4,2")).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("Compartilhar"));
+
+    expect(share).toHaveBeenCalledWith({
+      message: "Hospital Central, nota 4,2. Veja a nota e o tempo de espera no Pulseira Verde.",
+    });
+  });
+
+  test("'Compartilhar' sem nota suficiente manda só o nome", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue({ ...INDICADORES, indicadoresDisponiveis: false });
+    const share = jest.spyOn(Share, "share").mockResolvedValue({});
+    renderizar();
+    await screen.findByText("Hospital Central");
+
+    fireEvent.press(screen.getByLabelText("Compartilhar"));
+
+    expect(share).toHaveBeenCalledWith({ message: "Hospital Central. Veja a nota e o tempo de espera no Pulseira Verde." });
   });
 
   test("com visita manual ativa no mesmo hospital, exibe o cronômetro sem crashar", async () => {

@@ -1,18 +1,11 @@
 /**
- * Contrato do CSHospitalCard — o componente que carrega o check-in manual hoje.
+ * Contrato do CSHospitalCard (layout novo): o card inteiro abre o detalhe, mostra o tipo e
+ * a distância numa linha e não tem mais o botão de check-in (decisão do PO de 23/11/2026,
+ * seguindo o design aprovado: o check-in manual fica no detalhe, "Estou aqui agora").
  *
- * Existe por duas razões concretas:
- *
- * 1. O ARQ-05 mudou o contrato dos callbacks: `onPress` e `onCheckin` passaram a
- *    receber o próprio `hospital` de volta, para que a tela possa passar uma função
- *    memoizada em vez de criar uma arrow por item. Nada cobria essa mudança — se
- *    alguém reverter para `onPress()` sem argumento, a HospitaisScreen navega para
- *    `undefined.id` e o app quebra no toque.
- *
- * 2. Este card é o ÚNICO caminho de check-in manual do app. A tela dedicada
- *    (`CheckinManualScreen`) ficou órfã na revisão de navegação e foi removida; a
- *    funcionalidade permanece, aqui. Sem teste de componente, a remoção da tela
- *    órfã não teria rede embaixo.
+ * O ARQ-05 mudou o contrato do `onPress`: ele recebe o próprio `hospital` de volta, para a
+ * tela passar uma função memoizada. Se alguém reverter para `onPress()` sem argumento, o
+ * Início navega para `undefined.id` e o app quebra no toque.
  */
 import React from "react";
 import { render, fireEvent, screen } from "@testing-library/react-native";
@@ -27,7 +20,7 @@ const hospital = {
 };
 
 describe("CSHospitalCard", () => {
-  test("devolve o hospital ao chamador no toque do corpo do card (contrato do ARQ-05)", () => {
+  test("devolve o hospital ao chamador no toque do card (contrato do ARQ-05)", () => {
     const onPress = jest.fn();
     render(<CSHospitalCard hospital={hospital} onPress={onPress} />);
 
@@ -36,44 +29,18 @@ describe("CSHospitalCard", () => {
     expect(onPress).toHaveBeenCalledWith(hospital);
   });
 
-  test("devolve o hospital ao chamador no toque do botão de check-in", () => {
-    const onCheckin = jest.fn();
-    render(<CSHospitalCard hospital={hospital} onCheckin={onCheckin} />);
-
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital de Base"));
-
-    expect(onCheckin).toHaveBeenCalledWith(hospital);
-  });
-
-  test("sem onCheckin, o botão de check-in não é renderizado", () => {
+  test("não tem botão de check-in: o check-in manual fica no detalhe", () => {
     render(<CSHospitalCard hospital={hospital} onPress={jest.fn()} />);
 
-    expect(screen.queryByLabelText("Fazer check-in em Hospital de Base")).toBeNull();
+    expect(screen.queryByText("Check-in")).toBeNull();
   });
 
-  test("com visita ativa neste hospital, o botão vira 'ver' e muda o rótulo acessível", () => {
-    const onCheckin = jest.fn();
-    render(<CSHospitalCard hospital={hospital} onCheckin={onCheckin} checkinAtivo />);
+  test("mostra a nota, as avaliações e a espera com espaço antes do 'min'", () => {
+    render(<CSHospitalCard hospital={hospital} />);
 
-    expect(screen.getByText("Em visita — ver")).toBeTruthy();
-    expect(screen.getByLabelText("Hospital de Base — ver check-in ativo")).toBeTruthy();
-  });
-
-  test("durante o envio, o botão mostra 'Enviando...' e não dispara de novo", () => {
-    const onCheckin = jest.fn();
-    render(<CSHospitalCard hospital={hospital} onCheckin={onCheckin} checkinLoading />);
-
-    expect(screen.getByText("Enviando...")).toBeTruthy();
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital de Base"));
-    expect(onCheckin).not.toHaveBeenCalled();
-  });
-
-  test("com check-in ativo em OUTRO hospital, o botão fica desabilitado", () => {
-    const onCheckin = jest.fn();
-    render(<CSHospitalCard hospital={hospital} onCheckin={onCheckin} checkinDesabilitado />);
-
-    fireEvent.press(screen.getByLabelText("Fazer check-in em Hospital de Base"));
-    expect(onCheckin).not.toHaveBeenCalled();
+    expect(screen.getByText("4,2")).toBeTruthy();
+    expect(screen.getByText("12 avaliações")).toBeTruthy();
+    expect(screen.getByText("45 min")).toBeTruthy();
   });
 
   test("com amostra abaixo do mínimo, mostra o aviso em vez de inventar uma média", () => {
@@ -87,16 +54,38 @@ describe("CSHospitalCard", () => {
     expect(screen.queryByText("3 avaliações")).toBeNull();
   });
 
-  test("com `distancia`, mostra a distância já formatada (F-07, critério 3)", () => {
-    render(<CSHospitalCard hospital={hospital} distancia="1,2 km" />);
+  test("com `distancia`, a linha fica 'tipo · distância', como no design", () => {
+    render(<CSHospitalCard hospital={{ ...hospital, tipoUnidade: "Hospital geral" }} distancia="1,2 km" />);
 
-    expect(screen.getByText(/· 1,2 km de você$/)).toBeTruthy();
+    expect(screen.getByText("Hospital geral · 1,2 km")).toBeTruthy();
   });
 
   test("sem `distancia`, não mostra linha de distância — nunca um 'N/D'", () => {
     render(<CSHospitalCard hospital={hospital} />);
 
-    expect(screen.queryByText(/de você/)).toBeNull();
+    expect(screen.getByText("Hospital")).toBeTruthy();
     expect(screen.queryByText(/N\/D/)).toBeNull();
+  });
+
+  test("em visita neste hospital, a distância dá lugar a 'você está aqui'", () => {
+    render(<CSHospitalCard hospital={hospital} distancia="1,2 km" emVisita />);
+
+    expect(screen.getByText("Hospital · você está aqui")).toBeTruthy();
+  });
+
+  test("tipo da unidade que repete o nome (CNES) não é mostrado; o tipo curto é", () => {
+    const { rerender } = render(
+      <CSHospitalCard
+        hospital={{
+          ...hospital,
+          nome: "Ambulatório de Diversidade de Gênero",
+          tipoUnidade: "Ambulatório de Diversidade de Gênero – Asa Sul",
+        }}
+      />
+    );
+    expect(screen.getByText("Hospital")).toBeTruthy();
+
+    rerender(<CSHospitalCard hospital={{ ...hospital, nome: "Caps Ad Brasília", tipoUnidade: "CAPS" }} />);
+    expect(screen.getByText("CAPS")).toBeTruthy();
   });
 });

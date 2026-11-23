@@ -568,9 +568,9 @@ describe("GeoLocalizacaoScreen (F-07)", () => {
 
       const card = await screen.findByTestId("card-hospital-mapa");
       expect(within(card).getByText("Hospital Alfa")).toBeTruthy();
-      expect(within(card).getByText(/^UPA · Público/)).toBeTruthy();
+      expect(within(card).getByText(/^UPA/)).toBeTruthy();
       expect(within(card).getByText("12 avaliações")).toBeTruthy();
-      expect(within(card).getByLabelText("Tempo médio de espera: 1h35")).toBeTruthy();
+      expect(within(card).getByLabelText("Tempo médio de espera: 1 h 35")).toBeTruthy();
       // Selecionar não navega: o detalhe só abre pelo toque no card.
       expect(NAVEGACAO.navigate).not.toHaveBeenCalled();
     });
@@ -582,7 +582,7 @@ describe("GeoLocalizacaoScreen (F-07)", () => {
 
       const card = await screen.findByTestId("card-hospital-mapa");
       // Centroide do ANEL de teste a ~278 m do GPS mockado (ver o teste do BUG-11).
-      expect(within(card).getByText(/ · \d+ m de você$/)).toBeTruthy();
+      expect(within(card).getByText(/ · \d+ m$/)).toBeTruthy();
     });
 
     test("sem GPS, o card não mostra distância", async () => {
@@ -593,7 +593,7 @@ describe("GeoLocalizacaoScreen (F-07)", () => {
 
       const card = await screen.findByTestId("card-hospital-mapa");
       expect(within(card).getByText("Hospital Alfa")).toBeTruthy();
-      expect(within(card).queryByText(/de você/)).toBeNull();
+      expect(within(card).queryByText(/ · \d+ (m|km)$/)).toBeNull();
     });
 
     test("o marcador selecionado é destacado e desenhado por último, acima dos demais", async () => {

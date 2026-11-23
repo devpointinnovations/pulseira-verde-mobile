@@ -1,5 +1,5 @@
 import {StyleSheet} from 'react-native';
-import {colors, shadows, spacing, radii, typography} from '../../../../theme';
+import {colors, fontes, shadows, spacing, radii, typography} from '../../../../theme';
 
 const styles = StyleSheet.create({
     container: {
@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     label: {
+        fontFamily: fontes.texto,
         fontSize: 12,
         fontWeight: '700',
         color: colors.onSurfaceVariant,
@@ -95,6 +96,7 @@ const styles = StyleSheet.create({
         marginRight: spacing.s3,
     },
     input: {
+        fontFamily: fontes.texto,
         flex: 1,
         color: colors.onSurface,
         fontSize: 15,
@@ -118,12 +120,14 @@ const styles = StyleSheet.create({
         borderColor: colors.primary,
     },
     termsText: {
+        fontFamily: fontes.texto,
         flex: 1,
         fontSize: 13,
         color: colors.onSurfaceVariant,
         lineHeight: 18,
     },
     linkText: {
+        fontFamily: fontes.texto,
         fontWeight: '700',
         color: colors.primary,
     },
@@ -140,6 +144,7 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     registerButtonText: {
+        fontFamily: fontes.texto,
         color: colors.onPrimary,
         fontSize: 16,
         fontWeight: '700',
@@ -148,6 +153,7 @@ const styles = StyleSheet.create({
         marginLeft: spacing.s2,
     },
     simpleFooterLink: {
+        fontFamily: fontes.texto,
         fontSize: 12,
         color: colors.onSurfaceVariant,
     },

@@ -154,7 +154,7 @@ describe("HistoricoScreen (E5-03/RN-22)", () => {
     renderizar();
     expect(await screen.findByText("Hospital Central")).toBeTruthy();
     expect(screen.getByText("Finalizada · Automática")).toBeTruthy();
-    expect(screen.getByText(/1h30 de permanência/)).toBeTruthy();
+    expect(screen.getByText(/1 h 30 de permanência/)).toBeTruthy();
     expect(screen.getByText("sem nota")).toBeTruthy();
   });
 

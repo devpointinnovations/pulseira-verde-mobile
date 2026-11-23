@@ -10,6 +10,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.ReactPackage
 import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
+import com.facebook.react.common.assets.ReactFontManager
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 import expo.modules.ApplicationLifecycleDispatcher
@@ -50,6 +51,8 @@ class MainApplication : Application(), ReactApplication {
     } catch (e: IllegalArgumentException) {
       ReleaseLevel.STABLE
     }
+    // Layout novo: Inter como a família "Inter" do JS, com os pesos de res/font/inter.xml.
+    ReactFontManager.getInstance().addCustomFont(this, "Inter", R.font.inter)
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }

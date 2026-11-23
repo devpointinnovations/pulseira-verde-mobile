@@ -34,10 +34,10 @@ export function formatarDuracao(minutos) {
   const resto = total % 60;
 
   if (horas === 0) {
-    return `${resto}min`;
+    return `${resto} min`;
   }
 
-  return `${horas}h${String(resto).padStart(2, "0")}`;
+  return `${horas} h ${String(resto).padStart(2, "0")}`;
 }
 
 /** "4.2" → "4,2" (vírgula decimal, pt-BR, uma casa). */

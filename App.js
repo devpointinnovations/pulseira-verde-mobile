@@ -24,7 +24,7 @@ import PerfilScreen from "./src/screens/perfil/view/PerfilScreen.js";
 import HistoricoScreen from "./src/screens/perfil/view/HistoricoScreen.js";
 import PrivacidadeScreen from "./src/screens/perfil/view/PrivacidadeScreen.js";
 import NotificacoesScreen from "./src/screens/perfil/view/NotificacoesScreen.js";
-import {colors} from "./src/theme";
+import {colors, fontes} from "./src/theme";
 import { agendarLembrete, pendenciaDaVisita } from "./src/screens/feedback/service/FeedbackNotificationService";
 import { sincronizar } from "./src/services/SincronizacaoOffline";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -155,7 +155,7 @@ function Tabs() {
                 headerShown: false,
                 tabBarActiveTintColor: colors.onPrimaryContainer,
                 tabBarInactiveTintColor: colors.onSurfaceVariant,
-                tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+                tabBarLabelStyle: { fontFamily: fontes.texto, fontSize: 12, fontWeight: "600" },
                 tabBarStyle: {
                     backgroundColor: colors.surfaceContainerLowest,
                     borderTopColor: colors.outlineVariant,
