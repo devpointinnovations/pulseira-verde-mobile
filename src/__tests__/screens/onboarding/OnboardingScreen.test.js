@@ -83,4 +83,13 @@ describe("OnboardingScreen", () => {
     await waitFor(() => expect(navigation.reset).toHaveBeenCalledWith(PARA_AS_ABAS));
     expect(await onboardingConcluido()).toBe(true);
   });
+
+  it("aberta pelo Perfil ('Como funciona'), volta para a tela anterior ao terminar", async () => {
+    const navigation = { reset: jest.fn(), canGoBack: jest.fn(() => true), goBack: jest.fn() };
+    renderComProviders(<OnboardingScreen navigation={navigation} />);
+    fireEvent.press(screen.getByLabelText("Pular apresentação"));
+
+    await waitFor(() => expect(navigation.goBack).toHaveBeenCalled());
+    expect(navigation.reset).not.toHaveBeenCalled();
+  });
 });

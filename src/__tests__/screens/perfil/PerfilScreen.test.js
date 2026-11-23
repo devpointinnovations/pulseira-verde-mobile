@@ -181,10 +181,12 @@ describe("PerfilScreen (E5-05 — revogação nativa)", () => {
   test("as linhas do menu levam à sugestão de hospital, aos avisos e à privacidade", async () => {
     await renderizar();
     fireEvent.press(screen.getByLabelText("Sugerir um hospital"));
+    fireEvent.press(screen.getByLabelText("Como funciona"));
     fireEvent.press(screen.getByLabelText("Gerenciar notificações"));
     fireEvent.press(screen.getByLabelText("Ler Política de Privacidade e Termos de Uso"));
 
     expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Inicio", { screen: "SugerirHospital" });
+    expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Onboarding");
     expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Notificacoes");
     expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Privacidade");
   });
