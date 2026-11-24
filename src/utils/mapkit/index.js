@@ -44,6 +44,10 @@ function avisarFalhaDaCamera(erro) {
 }
 
 function paddingEmTodosOsLados(valor = 0) {
+  // Já vem por lado (`{ top, right, bottom, left }`) quando a tela precisa deixar áreas livres.
+  if (typeof valor === "object") {
+    return valor;
+  }
   return { top: valor, right: valor, bottom: valor, left: valor };
 }
 

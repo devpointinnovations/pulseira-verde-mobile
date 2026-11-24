@@ -21,10 +21,16 @@ jest.mock("../../../screens/hospitais/service/HospitalService");
 jest.mock("../../../screens/visitas/service/VisitaService");
 
 // utils/mapkit (MapLibre nativo) não roda no Jest: Views no lugar, como nos outros testes do mapa.
+const mockCamera = { setCamera: jest.fn(), fitBounds: jest.fn() };
 jest.mock("../../../utils/mapkit", () => {
+  const { forwardRef, useImperativeHandle } = require("react");
   const { View } = require("react-native");
   const stub = ({ children, ...props }) => <View {...props}>{children}</View>;
-  return { __esModule: true, MapView: stub, Camera: stub, MarkerView: stub, ShapeSource: stub, FillLayer: stub, LineLayer: stub };
+  const Camera = forwardRef(function Camera(_, ref) {
+    useImperativeHandle(ref, () => mockCamera);
+    return null;
+  });
+  return { __esModule: true, MapView: stub, Camera, MarkerView: stub, ShapeSource: stub, FillLayer: stub, LineLayer: stub };
 });
 jest.mock("../../../services/CatalogoLocal", () => ({
   __esModule: true,
@@ -96,8 +102,9 @@ describe("HospitaisScreen (E1-03) — lista, visita ativa e atalhos", () => {
     fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital ou UPA"), "Hospítal A");
     expect(screen.getByText("Hospital B")).toBeTruthy();
 
-    await waitFor(() => expect(screen.queryByText("Hospital B")).toBeNull());
-    expect(screen.getByText("Hospital A")).toBeTruthy();
+    const lista = within(screen.getByTestId("lista-hospitais"));
+    await waitFor(() => expect(lista.queryByText("Hospital B")).toBeNull());
+    expect(lista.getByText("Hospital A")).toBeTruthy();
     expect(HospitalService.listar).not.toHaveBeenCalled();
   });
 
@@ -188,11 +195,11 @@ describe("HospitaisScreen (E1-03) — lista, visita ativa e atalhos", () => {
     expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Perfil");
   });
 
-  test("o botão de localização do mapa abre o mapa completo", async () => {
+  test("o botão do mapa completo abre o mapa completo", async () => {
     renderizar();
     await screen.findByText("Hospital A");
 
-    fireEvent.press(screen.getByLabelText("Abrir o mapa na sua localização"));
+    fireEvent.press(screen.getByLabelText("Abrir o mapa completo"));
     expect(NAVEGACAO.navigate).toHaveBeenCalledWith("MapaTela");
   });
 
@@ -259,15 +266,13 @@ describe("HospitaisScreen (E1-03) — lista, visita ativa e atalhos", () => {
       expect(within(aviso).queryByText(/min/)).toBeNull();
     });
 
-    test("'Ver ranking' abre a aba Ranking e o botão do mapa abre o mapa", async () => {
+    test("'Ver ranking' abre a aba Ranking", async () => {
       renderizar();
       await screen.findByText("Hospital A");
 
       fireEvent.press(screen.getByText("Ver ranking"));
-      fireEvent.press(screen.getByLabelText("Abrir o mapa dos hospitais"));
 
       expect(NAVEGACAO.navigate).toHaveBeenCalledWith("Ranking");
-      expect(NAVEGACAO.navigate).toHaveBeenCalledWith("MapaTela");
       expect(screen.queryByText("Visita em andamento")).toBeNull();
     });
 
@@ -384,8 +389,9 @@ describe("HospitaisScreen — lista do catálogo no aparelho e indicadores do se
 
     fireEvent.changeText(screen.getByPlaceholderText("Buscar hospital ou UPA"), "AGUA");
 
-    await waitFor(() => expect(screen.queryByText("Upa Riacho Fundo")).toBeNull());
-    expect(screen.getByText("Clínica Água")).toBeTruthy();
+    const lista = within(screen.getByTestId("lista-hospitais"));
+    await waitFor(() => expect(lista.queryByText("Upa Riacho Fundo")).toBeNull());
+    expect(lista.getByText("Clínica Água")).toBeTruthy();
   });
 
   test("sem cópia guardada, usa o catálogo baixado assim que ele chega", async () => {
@@ -456,5 +462,226 @@ describe("HospitaisScreen — lista do catálogo no aparelho e indicadores do se
 
     await waitFor(() => expect(HospitalService.listarIndicadoresDoCatalogo).toHaveBeenCalledTimes(2));
     expect(CatalogoLocal.obterEstabelecimentos).toHaveBeenCalledWith({ idadeMaximaMs: 0 });
+  });
+});
+
+describe("HospitaisScreen — busca e seleção de hospital no mapa (Opção B, 24/11/2026)", () => {
+  const PESSOA = { latitude: -15.78, longitude: -47.89 };
+  const COM_LUGAR_A = { ...HOSPITAL_A, localizacao: { latitude: -15.75, longitude: -47.89 } };
+  const COM_LUGAR_B = { ...HOSPITAL_B, localizacao: { latitude: -15.79, longitude: -47.89 } };
+  const SEM_LUGAR = { id: "hS", nome: "Hospital Sem Lugar", tipo: "PUBLICO", categoria: "HOSPITAL" };
+
+  const campoDeBusca = () => screen.getByPlaceholderText("Buscar hospital ou UPA");
+  const alturaDaFolha = () => screen.getByTestId("alca-da-folha").props.accessibilityValue.text;
+  const naLista = async () => within(await screen.findByTestId("lista-hospitais"));
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    definirUsuarioDaSessao(null);
+    HospitalService.listarIndicadoresDoCatalogo.mockResolvedValue({ porHospital: {} });
+    HospitalService.buscarPorId.mockResolvedValue(null);
+    CatalogoLocal.lerCopiaGuardada.mockResolvedValue([COM_LUGAR_A, COM_LUGAR_B, SEM_LUGAR]);
+    CatalogoLocal.obterEstabelecimentos.mockResolvedValue([COM_LUGAR_A, COM_LUGAR_B, SEM_LUGAR]);
+    CatalogoLocal.conferirSeVencida.mockResolvedValue(false);
+    VisitaService.buscarAtiva.mockResolvedValue({ visita: null });
+    Location.getForegroundPermissionsAsync.mockResolvedValue({ granted: true });
+    Location.getLastKnownPositionAsync.mockResolvedValue(null);
+    Location.getCurrentPositionAsync.mockResolvedValue({ coords: PESSOA });
+  });
+
+  afterEach(() => {
+    Location.getForegroundPermissionsAsync.mockReset();
+    Location.getCurrentPositionAsync.mockReset();
+    Location.getLastKnownPositionAsync.mockReset();
+  });
+
+  test("tocar num card da lista seleciona o hospital: recolhe a folha e abre o cartão, sem navegar", async () => {
+    renderizar();
+    expect(alturaDaFolha()).toBe("meio");
+
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    const cartao = await screen.findByTestId("cartao-do-hospital");
+    expect(within(cartao).getByText("Hospital A")).toBeTruthy();
+    expect(alturaDaFolha()).toBe("recolhida");
+    expect(NAVEGACAO.navigate).not.toHaveBeenCalled();
+  });
+
+  test("'Ver detalhes' tira o mapa da tela e só então abre o detalhe do hospital", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    fireEvent.press(await screen.findByLabelText("Ver detalhes de Hospital A"));
+
+    await waitFor(() => expect(NAVEGACAO.navigate).toHaveBeenCalledWith("HospitalDetalhe", { id: "hA" }));
+    expect(screen.queryByTestId("mapa-inicio")).toBeNull();
+  });
+
+  test("tocar no próprio card do cartão também abre o detalhe", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    const cartao = await screen.findByTestId("cartao-do-hospital");
+    fireEvent.press(within(cartao).getByText("Hospital A"));
+
+    await waitFor(() => expect(NAVEGACAO.navigate).toHaveBeenCalledWith("HospitalDetalhe", { id: "hA" }));
+  });
+
+  test("fechar o cartão limpa a seleção e a folha volta ao meio", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    fireEvent.press(await screen.findByLabelText("Fechar o cartão do hospital"));
+
+    expect(screen.queryByTestId("cartao-do-hospital")).toBeNull();
+    expect(alturaDaFolha()).toBe("meio");
+  });
+
+  test("o botão de localização limpa a seleção e recentraliza", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    fireEvent.press(await screen.findByLabelText("Centralizar na minha posição"));
+
+    expect(screen.queryByTestId("cartao-do-hospital")).toBeNull();
+    expect(alturaDaFolha()).toBe("meio");
+  });
+
+  test("tocar no pin do hospital no mapa seleciona o hospital, e não abre o mapa completo", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+
+    fireEvent(await screen.findByLabelText("Ver Hospital A no mapa"), "responderRelease");
+
+    const cartao = await screen.findByTestId("cartao-do-hospital");
+    expect(within(cartao).getByText("Hospital A")).toBeTruthy();
+    expect(NAVEGACAO.navigate).not.toHaveBeenCalled();
+  });
+
+  test("com GPS, selecionar enquadra a pessoa e o hospital deixando livres a busca e o cartão", async () => {
+    renderizar();
+    await waitFor(() => expect(Location.getCurrentPositionAsync).toHaveBeenCalled());
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+
+    await waitFor(() => expect(mockCamera.fitBounds).toHaveBeenCalled());
+    const [nordeste, sudoeste, padding] = mockCamera.fitBounds.mock.calls.at(-1);
+    expect(nordeste[1]).toBeGreaterThan(sudoeste[1]);
+    expect(padding).toEqual(expect.objectContaining({ left: 48, right: 48 }));
+    expect(padding.top).toBeGreaterThan(0);
+    expect(padding.bottom).toBeGreaterThan(padding.top);
+  });
+
+  test("hospital sem coordenada seleciona e avisa que não tem lugar no mapa", async () => {
+    renderizar();
+
+    fireEvent.press(await (await naLista()).findByText("Hospital Sem Lugar"));
+
+    expect(await screen.findByText("Este hospital está sem localização no mapa.")).toBeTruthy();
+  });
+
+  test("a busca mostra até 5 sugestões depois da pausa, e tocar numa seleciona o hospital", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+
+    fireEvent.changeText(campoDeBusca(), "hospital");
+    expect(screen.queryByTestId("sugestoes-da-busca")).toBeNull();
+
+    const sugestoes = within(await screen.findByTestId("sugestoes-da-busca"));
+    expect(sugestoes.getAllByRole("button").length).toBeLessThanOrEqual(5);
+    fireEvent.press(sugestoes.getByLabelText("Mostrar Hospital B no mapa"));
+
+    expect(screen.queryByTestId("sugestoes-da-busca")).toBeNull();
+    expect(campoDeBusca().props.value).toBe("Hospital B");
+    const cartao = await screen.findByTestId("cartao-do-hospital");
+    expect(within(cartao).getByText("Hospital B")).toBeTruthy();
+  });
+
+  test("a distância aparece na sugestão quando há GPS", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital B");
+    await waitFor(() => expect(Location.getCurrentPositionAsync).toHaveBeenCalled());
+
+    fireEvent.changeText(campoDeBusca(), "Hospital B");
+
+    const sugestoes = within(await screen.findByTestId("sugestoes-da-busca"));
+    expect(await sugestoes.findByText(/km|m$/)).toBeTruthy();
+  });
+
+  test("'buscar' no teclado escolhe a primeira sugestão", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+
+    fireEvent.changeText(campoDeBusca(), "Hospital A");
+    await screen.findByTestId("sugestoes-da-busca");
+    fireEvent(campoDeBusca(), "submitEditing");
+
+    expect(await screen.findByTestId("cartao-do-hospital")).toBeTruthy();
+  });
+
+  test("'buscar' sem sugestões não faz nada", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+
+    fireEvent(campoDeBusca(), "submitEditing");
+
+    expect(screen.queryByTestId("cartao-do-hospital")).toBeNull();
+  });
+
+  test("o X da busca limpa o campo, fecha as sugestões e devolve o avatar", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+    fireEvent.changeText(campoDeBusca(), "Hospital");
+    await screen.findByTestId("sugestoes-da-busca");
+
+    fireEvent.press(screen.getByLabelText("Limpar a busca"));
+
+    expect(campoDeBusca().props.value).toBe("");
+    expect(screen.queryByTestId("sugestoes-da-busca")).toBeNull();
+    expect(screen.getByLabelText("Abrir o perfil")).toBeTruthy();
+  });
+
+  test("se a busca tira o hospital selecionado da lista, o cartão some", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+    await screen.findByTestId("cartao-do-hospital");
+
+    fireEvent.changeText(campoDeBusca(), "Sem Lugar");
+
+    await waitFor(() => expect(screen.queryByTestId("cartao-do-hospital")).toBeNull());
+  });
+
+  test("a folha e o mapa acompanham a altura que a tela mede de si mesma", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+
+    fireEvent(screen.getByTestId("tela-inicio"), "layout", { nativeEvent: { layout: { height: 800 } } });
+
+    expect(screen.getByTestId("mapa-inicio").props.style).toEqual(expect.arrayContaining([{ height: 800 }]));
+  });
+
+  test("a lista só rola com a folha expandida; as ações de acessibilidade mudam a altura", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+    const alca = screen.getByTestId("alca-da-folha");
+    expect(screen.getByTestId("lista-hospitais").props.scrollEnabled).toBe(false);
+
+    fireEvent(alca, "accessibilityAction", { nativeEvent: { actionName: "increment" } });
+    expect(alturaDaFolha()).toBe("expandida");
+    expect(screen.getByTestId("lista-hospitais").props.scrollEnabled).toBe(true);
+
+    fireEvent(alca, "accessibilityAction", { nativeEvent: { actionName: "decrement" } });
+    expect(alturaDaFolha()).toBe("meio");
+  });
+
+  test("com a folha expandida, o cartão do hospital escolhido some para não cobrir a lista", async () => {
+    renderizar();
+    fireEvent.press(await (await naLista()).findByText("Hospital A"));
+    await screen.findByTestId("cartao-do-hospital");
+
+    fireEvent(screen.getByTestId("alca-da-folha"), "accessibilityAction", { nativeEvent: { actionName: "increment" } });
+    fireEvent(screen.getByTestId("alca-da-folha"), "accessibilityAction", { nativeEvent: { actionName: "increment" } });
+
+    expect(alturaDaFolha()).toBe("expandida");
+    expect(screen.queryByTestId("cartao-do-hospital")).toBeNull();
   });
 });

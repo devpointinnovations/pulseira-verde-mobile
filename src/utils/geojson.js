@@ -177,3 +177,24 @@ export function geofencesParaFeatureCollection(hospitais) {
 
   return { type: "FeatureCollection", features };
 }
+
+/**
+ * Meia largura mínima do enquadramento, em graus (~550 m de latitude). Um hospital só,
+ * ou vários no mesmo ponto, formam uma caixa de área zero: o `fitBounds` ia ao zoom
+ * máximo e o mapa ficava cinza, sem tiles (filtro de 1 km na rc.8).
+ */
+export const MEIA_LARGURA_MINIMA_GRAUS = 0.005;
+
+/** Cantos nordeste e sudoeste (`[lng, lat]`) que cobrem os pontos, com área mínima. */
+export function calcularLimitesDoEnquadramento(pontos) {
+  const lats = pontos.map((p) => p.latitude);
+  const lngs = pontos.map((p) => p.longitude);
+  const centroLat = (Math.max(...lats) + Math.min(...lats)) / 2;
+  const centroLng = (Math.max(...lngs) + Math.min(...lngs)) / 2;
+  const meiaAltura = Math.max((Math.max(...lats) - Math.min(...lats)) / 2, MEIA_LARGURA_MINIMA_GRAUS);
+  const meiaLargura = Math.max((Math.max(...lngs) - Math.min(...lngs)) / 2, MEIA_LARGURA_MINIMA_GRAUS);
+  return [
+    [centroLng + meiaLargura, centroLat + meiaAltura],
+    [centroLng - meiaLargura, centroLat - meiaAltura],
+  ];
+}

@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { LocateFixed, Plus } from "lucide-react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Plus } from "lucide-react-native";
 import { Camera, MapView, MarkerView } from "../../../utils/mapkit";
 import { MAP_STYLE } from "../../../utils/mapStyle";
-import { centroDoHospital } from "../../../utils/geojson";
+import { calcularLimitesDoEnquadramento, centroDoHospital } from "../../../utils/geojson";
 import { avaliacaoSuficiente } from "../../../utils/indicadores";
 import { formatarNota } from "../../../utils/format";
 import { colors, fontes, shadows } from "../../../theme/tokens";
@@ -15,22 +15,41 @@ export const PINS_NO_MAPA = 12;
 const CENTRO_SEM_GPS = { latitude: -15.7939, longitude: -47.8828 };
 const ZOOM_SEM_GPS = 11;
 const ZOOM_COM_GPS = 12.5;
+/** Sem GPS, o hospital selecionado fica sozinho no enquadramento: zoom de bairro. */
+const ZOOM_DO_SELECIONADO = 14;
+const MARGEM_LATERAL = 48;
+const DURACAO_DA_CAMERA_MS = 600;
 
 /**
- * Mapa do topo do Início (layout novo): os hospitais mais perto com a nota num pin, o
- * de melhor nota em verde, e a posição da pessoa. É só uma vista: o mapa não recebe
- * toques (BUG-04, toque atrasado num mapa destruído trava o app), e tocar nele ou no botão
- * de localização abre o mapa completo, que já trata a navegação com segurança.
+ * Mapa do Início: os hospitais mais perto com a nota num pin, o de melhor nota em verde, o
+ * hospital selecionado em destaque e a posição da pessoa. Tocar num pin seleciona o hospital
+ * (`aoSelecionar`) e a câmera enquadra a pessoa e o hospital, deixando livres a busca no topo
+ * (`margemSuperior`) e o cartão com a folha embaixo (`margemInferior`). Quem navega é a tela,
+ * que desmonta o mapa antes (BUG-04, toque atrasado num mapa destruído trava o app).
+ * `sinalDeRecentrar` muda a cada pedido para voltar a câmera à pessoa.
  */
-function MapaPertoDeVoce({ hospitais, posicao, onAbrirMapa, altura }) {
-  const pins = useMemo(
-    () =>
-      hospitais
-        .slice(0, PINS_NO_MAPA)
-        .map((hospital) => ({ hospital, centro: centroDoHospital(hospital) }))
-        .filter(({ centro }) => centro),
-    [hospitais]
-  );
+function MapaPertoDeVoce({
+  hospitais,
+  selecionado = null,
+  posicao,
+  aoSelecionar,
+  sinalDeRecentrar = 0,
+  margemSuperior = 0,
+  margemInferior = 0,
+  altura,
+}) {
+  const cameraRef = useRef(null);
+  const posicaoRef = useRef(posicao);
+  useEffect(() => {
+    posicaoRef.current = posicao;
+  }, [posicao]);
+
+  const pins = useMemo(() => {
+    const doMapa = hospitais.slice(0, PINS_NO_MAPA);
+    // O selecionado sempre aparece, mesmo fora dos mais perto (a busca o traz de longe).
+    const lista = selecionado && !doMapa.some((h) => h.id === selecionado.id) ? [...doMapa, selecionado] : doMapa;
+    return lista.map((hospital) => ({ hospital, centro: centroDoHospital(hospital) })).filter(({ centro }) => centro);
+  }, [hospitais, selecionado]);
   const melhorId = useMemo(() => {
     let melhor = null;
     for (const { hospital } of pins) {
@@ -45,51 +64,88 @@ function MapaPertoDeVoce({ hospitais, posicao, onAbrirMapa, altura }) {
   // acompanha a mudança de centro).
   const centro = posicao ?? CENTRO_SEM_GPS;
 
+  // Selecionar enquadra pessoa e hospital; sem GPS, só o hospital. A posição entra por ref
+  // para o GPS atualizar sem mover a câmera de novo. Hospital sem coordenada não move nada.
+  const ponto = selecionado ? centroDoHospital(selecionado) : null;
+  const selecionadoId = selecionado?.id;
+  useEffect(() => {
+    if (!ponto) {
+      return;
+    }
+    const pessoa = posicaoRef.current;
+    if (!pessoa) {
+      cameraRef.current?.setCamera({
+        centerCoordinate: [ponto.longitude, ponto.latitude],
+        zoomLevel: ZOOM_DO_SELECIONADO,
+        animationDuration: DURACAO_DA_CAMERA_MS,
+      });
+      return;
+    }
+    const [nordeste, sudoeste] = calcularLimitesDoEnquadramento([ponto, pessoa]);
+    cameraRef.current?.fitBounds(
+      nordeste,
+      sudoeste,
+      { top: margemSuperior, right: MARGEM_LATERAL, bottom: margemInferior, left: MARGEM_LATERAL },
+      DURACAO_DA_CAMERA_MS
+    );
+    // Só quando troca o hospital: mudar a margem (arrastar a folha) não reenquadra.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selecionadoId]);
+
+  // O botão de localização volta a câmera para a pessoa (ou para Brasília, sem GPS).
+  useEffect(() => {
+    if (!sinalDeRecentrar) {
+      return;
+    }
+    cameraRef.current?.setCamera({
+      centerCoordinate: [centro.longitude, centro.latitude],
+      zoomLevel: posicaoRef.current ? ZOOM_COM_GPS : ZOOM_SEM_GPS,
+      animationDuration: DURACAO_DA_CAMERA_MS,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinalDeRecentrar]);
+
   return (
     <View style={[styles.area, { height: altura }]} testID="mapa-inicio">
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <MapView style={StyleSheet.absoluteFill} styleURL={MAP_STYLE}>
-          <Camera
-            centerCoordinate={[centro.longitude, centro.latitude]}
-            zoomLevel={posicao ? ZOOM_COM_GPS : ZOOM_SEM_GPS}
-          />
-          {pins.map(({ hospital, centro: ponto }) => {
-            const destaque = hospital.id === melhorId;
-            const nota = avaliacaoSuficiente(hospital.indicadores) ? formatarNota(hospital.indicadores.notaMedia) : null;
-            return (
-              <MarkerView key={hospital.id} coordinate={[ponto.longitude, ponto.latitude]}>
-                <View style={[styles.pin, destaque && styles.pinDestaque]}>
-                  <Plus size={16} strokeWidth={3} color={destaque ? colors.onPrimary : colors.primary} />
-                  {nota ? <Text style={[styles.pinNota, destaque && styles.pinNotaDestaque]}>{nota}</Text> : null}
-                </View>
-              </MarkerView>
-            );
-          })}
-          {posicao ? (
-            <MarkerView coordinate={[posicao.longitude, posicao.latitude]}>
-              <View style={styles.voceHalo}>
-                <View style={styles.vocePonto} />
+      <MapView style={StyleSheet.absoluteFill} styleURL={MAP_STYLE}>
+        <Camera
+          ref={cameraRef}
+          centerCoordinate={[centro.longitude, centro.latitude]}
+          zoomLevel={posicao ? ZOOM_COM_GPS : ZOOM_SEM_GPS}
+        />
+        {pins.map(({ hospital, centro: ponto_ }) => {
+          const destaque = hospital.id === melhorId;
+          const marcado = hospital.id === selecionado?.id;
+          const nota = avaliacaoSuficiente(hospital.indicadores) ? formatarNota(hospital.indicadores.notaMedia) : null;
+          const cheio = destaque || marcado;
+          return (
+            <MarkerView
+              key={hospital.id}
+              testID={`pin-hospital-${hospital.id}`}
+              coordinate={[ponto_.longitude, ponto_.latitude]}
+            >
+              <View
+                style={[styles.pin, cheio && styles.pinDestaque, marcado && styles.pinSelecionado]}
+                accessibilityRole="button"
+                accessibilityLabel={`Ver ${hospital.nome} no mapa`}
+                accessibilityState={{ selected: marcado }}
+                onStartShouldSetResponder={() => true}
+                onResponderRelease={() => aoSelecionar?.(hospital)}
+              >
+                <Plus size={16} strokeWidth={3} color={cheio ? colors.onPrimary : colors.primary} />
+                {nota ? <Text style={[styles.pinNota, cheio && styles.pinNotaDestaque]}>{nota}</Text> : null}
               </View>
             </MarkerView>
-          ) : null}
-        </MapView>
-      </View>
-
-      <Pressable
-        style={StyleSheet.absoluteFill}
-        onPress={onAbrirMapa}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir o mapa dos hospitais"
-      />
-      <Pressable
-        style={styles.localizar}
-        onPress={onAbrirMapa}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir o mapa na sua localização"
-        hitSlop={8}
-      >
-        <LocateFixed size={24} color={colors.primary} />
-      </Pressable>
+          );
+        })}
+        {posicao ? (
+          <MarkerView coordinate={[posicao.longitude, posicao.latitude]}>
+            <View style={styles.voceHalo} pointerEvents="none">
+              <View style={styles.vocePonto} />
+            </View>
+          </MarkerView>
+        ) : null}
+      </MapView>
     </View>
   );
 }
@@ -118,6 +174,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.onSurface,
   },
+  pinSelecionado: {
+    transform: [{ scale: 1.25 }],
+    ...shadows.cloud2,
+  },
   pinNotaDestaque: {
     color: colors.onPrimary,
   },
@@ -136,18 +196,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A73E8",
     borderWidth: 2,
     borderColor: "#FFFFFF",
-  },
-  localizar: {
-    position: "absolute",
-    right: 16,
-    bottom: 40,
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceContainerLowest,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.cloud1,
   },
 });
 

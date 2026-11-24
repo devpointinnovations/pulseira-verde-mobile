@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -8,11 +8,10 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
-import { MapPinOff, Search, Timer, User as UserIcon } from "lucide-react-native";
+import { LocateFixed, Maximize2, MapPinOff, Search, Timer, User as UserIcon, X } from "lucide-react-native";
 import { CSHospitalCard, CSEmptyState, CSLoadingList, CSChip } from "../../../components";
 import { colors, spacing, typography, fontes, shadows } from "../../../theme/tokens";
 import {
@@ -26,6 +25,8 @@ import { useSessao } from "../../../core/stores/sessaoStore";
 import { duracaoMinutosDesde } from "../../../utils/format";
 import { centroDoHospital } from "../../../utils/geojson";
 import { formatarDistancia, haversineMetros } from "../../../utils/distancia";
+import { alturaDaParada } from "../../../utils/folhaDeAlturas";
+import FolhaDeHospitais from "./FolhaDeHospitais";
 import MapaPertoDeVoce from "./MapaPertoDeVoce";
 
 /** Chips do design: tipo da unidade ou o raio de 5 km (este depende do GPS). */
@@ -38,8 +39,12 @@ const FILTROS = [
 const FILTRO_5KM = "5KM";
 const RAIO_PERTO_METROS = 5000;
 
-/** O mapa ocupa este tanto da altura da tela; a folha "Perto de você" sobe por cima dele. */
-const FRACAO_DO_MAPA = 0.4;
+/** Sugestões sob o campo de busca. */
+const MAXIMO_DE_SUGESTOES = 5;
+/** Altura do cartão do hospital selecionado (card + botões), para a câmera deixar a área livre. */
+const ALTURA_DO_CARTAO = 190;
+/** Antes de a tela medir a si mesma, usa a altura de uma tela comum. */
+const ALTURA_UTIL_INICIAL = 700;
 
 /**
  * Aviso da visita em andamento no topo do Início (layout novo). Os minutos se atualizam
@@ -108,8 +113,12 @@ function AvatarDaBusca({ onPress }) {
  */
 export default function HospitaisScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { height: alturaDaTela } = useWindowDimensions();
-  const alturaDoMapa = Math.round(alturaDaTela * FRACAO_DO_MAPA);
+  // O mapa ocupa a tela toda; a folha "Perto de você" sobe por cima dele em três alturas.
+  const [alturaUtil, setAlturaUtil] = useState(ALTURA_UTIL_INICIAL);
+  const [parada, setParada] = useState("meio");
+  const [selecionadoId, setSelecionadoId] = useState(null);
+  const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
+  const [sinalDeRecentrar, setSinalDeRecentrar] = useState(0);
 
   const [busca, setBusca] = useState("");
   // Termo que de fato filtra a lista, 400 ms depois da última tecla: sem isso, cada letra
@@ -181,18 +190,50 @@ export default function HospitaisScreen({ navigation }) {
   // Pins do mapa: os mais perto (com GPS) ou os primeiros do catálogo, com a nota do servidor.
   const hospitaisDoMapa = useMemo(() => comDistancia.map(({ hospital }) => hospital), [comDistancia]);
 
-  const abrirDetalhe = useCallback(
-    (hospital) => {
-      navigation.navigate("HospitalDetalhe", { id: hospital.id });
-    },
-    [navigation]
+  // Hospital escolhido na lista, na busca ou num pin: o mapa o mostra e o cartão resume. Sai
+  // da lista visível; se a busca o tirar dela, a seleção some em vez de mostrar dado velho.
+  const selecionadoItem = useMemo(
+    () => itens.find(({ hospital }) => hospital.id === selecionadoId) ?? null,
+    [itens, selecionadoId]
   );
+  const selecionado = selecionadoItem?.hospital ?? null;
+
+  const selecionar = useCallback((hospital) => {
+    setSelecionadoId(hospital.id);
+    setParada("recolhida");
+    setSugestoesAbertas(false);
+  }, []);
+  const limparSelecao = useCallback(() => {
+    setSelecionadoId(null);
+    setParada((atual) => (atual === "recolhida" ? "meio" : atual));
+  }, []);
+  const recentrar = useCallback(() => {
+    limparSelecao();
+    setSinalDeRecentrar((n) => n + 1);
+  }, [limparSelecao]);
+
+  // BUG-04: o mapa sai da árvore ANTES de navegar ao detalhe (o toque atrasado de um mapa
+  // destruído travava o app); quem navega é o efeito seguinte, com o desmonte já confirmado.
+  const [mapaVisivel, setMapaVisivel] = useState(true);
+  const detalhePendente = useRef(null);
+  const abrirDetalhe = useCallback((hospital) => {
+    detalhePendente.current = hospital.id;
+    setMapaVisivel(false);
+  }, []);
+  useEffect(() => {
+    if (mapaVisivel || !detalhePendente.current) {
+      return;
+    }
+    const id = detalhePendente.current;
+    detalhePendente.current = null;
+    navigation.navigate("HospitalDetalhe", { id });
+  }, [mapaVisivel, navigation]);
+
   const abrirMapa = useCallback(() => navigation.navigate("MapaTela"), [navigation]);
   const abrirPerfil = useCallback(() => navigation.navigate("Perfil"), [navigation]);
 
   // O mapa só existe com a aba à vista: sai ao abrir outra tela (um mapa a menos na memória
   // enquanto o mapa completo ou o detalhe estão abertos) e volta ao reabrir.
-  const [mapaVisivel, setMapaVisivel] = useState(true);
   useEffect(() => {
     const removerFoco = navigation?.addListener?.("focus", () => setMapaVisivel(true));
     const removerSaida = navigation?.addListener?.("blur", () => setMapaVisivel(false));
@@ -202,18 +243,42 @@ export default function HospitaisScreen({ navigation }) {
     };
   }, [navigation]);
 
+  // Sugestões só quando a lista já reflete o que foi digitado (o filtro espera 400 ms).
+  const sugestoes = useMemo(
+    () =>
+      sugestoesAbertas && busca.trim() && busca === buscaAplicada
+        ? itens.slice(0, MAXIMO_DE_SUGESTOES)
+        : [],
+    [sugestoesAbertas, busca, buscaAplicada, itens]
+  );
+  const digitar = useCallback((texto) => {
+    setBusca(texto);
+    setSugestoesAbertas(true);
+  }, []);
+  const limparBusca = useCallback(() => {
+    setBusca("");
+    setSugestoesAbertas(false);
+  }, []);
+  const escolherSugestao = useCallback(
+    (hospital) => {
+      setBusca(hospital.nome);
+      selecionar(hospital);
+    },
+    [selecionar]
+  );
+
   // ARQ-05: memoizado; inline, cada render criaria um `onPress` novo por card e anularia o
   // React.memo do CSHospitalCard.
   const renderItem = useCallback(
     ({ item }) => (
       <CSHospitalCard
         hospital={item.hospital}
-        onPress={abrirDetalhe}
+        onPress={selecionar}
         emVisita={visitaAtiva?.hospitalId === item.hospital.id}
         distancia={formatarDistancia(item.metros)}
       />
     ),
-    [abrirDetalhe, visitaAtiva]
+    [selecionar, visitaAtiva]
   );
 
   // ARQ-05: o ListEmptyComponent é renderizado como elemento; identidade nova a cada render
@@ -262,36 +327,131 @@ export default function HospitaisScreen({ navigation }) {
     );
   }, [busca, filtro, pertoDeMim, posicao, erro, recarregarCatalogo, navigation]);
 
+  const margemSuperior = insets.top + spacing.s3 + 56 + spacing.s4;
+  const margemInferior = alturaDaParada("recolhida", alturaUtil) + ALTURA_DO_CARTAO + spacing.s4;
+  const semLocalizacao = Boolean(selecionado) && !centroDoHospital(selecionado);
+  const mostrarCartao = Boolean(selecionado) && parada !== "expandida";
+
   return (
-    <View style={styles.tela}>
+    <View
+      testID="tela-inicio"
+      style={styles.tela}
+      onLayout={(evento) => setAlturaUtil(Math.round(evento.nativeEvent.layout.height))}
+    >
       {mapaVisivel ? (
         <MapaPertoDeVoce
           hospitais={hospitaisDoMapa}
+          selecionado={selecionado}
           posicao={posicao}
-          onAbrirMapa={abrirMapa}
-          altura={alturaDoMapa}
+          aoSelecionar={selecionar}
+          sinalDeRecentrar={sinalDeRecentrar}
+          margemSuperior={margemSuperior}
+          margemInferior={margemInferior}
+          altura={alturaUtil}
         />
       ) : (
-        <View style={[styles.mapaAusente, { height: alturaDoMapa }]} />
+        <View style={[styles.mapaAusente, { height: alturaUtil }]} />
       )}
 
       <View style={[styles.busca, { top: insets.top + spacing.s3 }]}>
-        <Search size={22} color={colors.onSurfaceVariant} />
-        <TextInput
-          value={busca}
-          onChangeText={setBusca}
-          placeholder="Buscar hospital ou UPA"
-          placeholderTextColor={colors.onSurfaceVariant}
-          accessibilityLabel="Buscar hospital ou UPA"
-          style={styles.buscaCampo}
-          returnKeyType="search"
-        />
-        <AvatarDaBusca onPress={abrirPerfil} />
+        <View style={styles.buscaLinha}>
+          <Search size={22} color={colors.onSurfaceVariant} />
+          <TextInput
+            value={busca}
+            onChangeText={digitar}
+            onSubmitEditing={() => sugestoes[0] && escolherSugestao(sugestoes[0].hospital)}
+            placeholder="Buscar hospital ou UPA"
+            placeholderTextColor={colors.onSurfaceVariant}
+            accessibilityLabel="Buscar hospital ou UPA"
+            style={styles.buscaCampo}
+            returnKeyType="search"
+          />
+          {busca ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Limpar a busca"
+              onPress={limparBusca}
+              hitSlop={6}
+              style={styles.limparBusca}
+            >
+              <X size={20} color={colors.onSurfaceVariant} />
+            </Pressable>
+          ) : (
+            <AvatarDaBusca onPress={abrirPerfil} />
+          )}
+        </View>
+        {sugestoes.length > 0 ? (
+          <View testID="sugestoes-da-busca">
+            {sugestoes.map(({ hospital, metros }) => (
+              <Pressable
+                key={hospital.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Mostrar ${hospital.nome} no mapa`}
+                onPress={() => escolherSugestao(hospital)}
+                style={styles.sugestao}
+              >
+                <Text style={styles.sugestaoNome} numberOfLines={1}>
+                  {hospital.nome}
+                </Text>
+                {metros === null ? null : <Text style={styles.sugestaoDistancia}>{formatarDistancia(metros)}</Text>}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
 
-      <View style={styles.folha}>
-        <View style={styles.alca} />
+      <View style={[styles.botoesDoMapa, { top: margemSuperior - spacing.s4 + 8 }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Centralizar na minha posição"
+          onPress={recentrar}
+          style={styles.botaoDoMapa}
+        >
+          <LocateFixed size={24} color={colors.primary} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir o mapa completo"
+          onPress={abrirMapa}
+          style={styles.botaoDoMapa}
+        >
+          <Maximize2 size={22} color={colors.primary} />
+        </Pressable>
+      </View>
 
+      {mostrarCartao ? (
+        <View
+          testID="cartao-do-hospital"
+          style={[styles.cartao, { bottom: alturaDaParada(parada, alturaUtil) + spacing.s3 }]}
+        >
+          <CSHospitalCard
+            hospital={selecionado}
+            onPress={abrirDetalhe}
+            distancia={formatarDistancia(selecionadoItem.metros)}
+          />
+          {semLocalizacao ? <Text style={styles.semLocalizacao}>Este hospital está sem localização no mapa.</Text> : null}
+          <View style={styles.cartaoBotoes}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Ver detalhes de ${selecionado.nome}`}
+              onPress={() => abrirDetalhe(selecionado)}
+              style={styles.verDetalhes}
+            >
+              <Text style={styles.verDetalhesTexto}>Ver detalhes</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fechar o cartão do hospital"
+              onPress={limparSelecao}
+              style={styles.fecharCartao}
+            >
+              <X size={20} color={colors.onSurface} />
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      <FolhaDeHospitais parada={parada} aoMudarParada={setParada} alturaUtil={alturaUtil}>
         <View style={styles.cabecalho}>
           {visitaAtiva ? (
             <AvisoVisita
@@ -330,22 +490,26 @@ export default function HospitaisScreen({ navigation }) {
           </Text>
         ) : null}
 
-        {catalogo.isPending ? (
-          <CSLoadingList count={3} />
-        ) : (
-          <FlatList
-            testID="lista-hospitais"
-            data={itens}
-            keyExtractor={(item) => item.hospital.id}
-            renderItem={renderItem}
-            ListEmptyComponent={renderVazio}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={colors.primary} />
-            }
-          />
-        )}
-      </View>
+        <View style={styles.listaArea}>
+          {catalogo.isPending ? (
+            <CSLoadingList count={3} />
+          ) : (
+            <FlatList
+              testID="lista-hospitais"
+              data={itens}
+              keyExtractor={(item) => item.hospital.id}
+              renderItem={renderItem}
+              ListEmptyComponent={renderVazio}
+              contentContainerStyle={styles.listContent}
+              // Só rola com a folha aberta: nas outras alturas o arraste é da folha.
+              scrollEnabled={parada === "expandida"}
+              refreshControl={
+                <RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={colors.primary} />
+              }
+            />
+          )}
+        </View>
+      </FolhaDeHospitais>
     </View>
   );
 }
@@ -357,16 +521,84 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: spacing.s4,
     right: spacing.s4,
+    zIndex: 3,
+    borderRadius: 28,
+    backgroundColor: colors.surfaceContainerLowest,
+    overflow: "hidden",
+    ...shadows.cloud1,
+  },
+  buscaLinha: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.s3,
     paddingLeft: spacing.s4,
     paddingRight: 6,
     height: 56,
-    borderRadius: 28,
+  },
+  limparBusca: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sugestao: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.s3,
+    minHeight: 48,
+    paddingHorizontal: spacing.s4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.outlineVariant,
+  },
+  sugestaoNome: { ...typography.bodyMd, flex: 1, color: colors.onSurface },
+  sugestaoDistancia: { ...typography.bodySm, color: colors.onSurfaceVariant },
+  botoesDoMapa: {
+    position: "absolute",
+    right: spacing.s4,
+    gap: spacing.s2,
+  },
+  botaoDoMapa: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: colors.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.cloud1,
   },
+  cartao: {
+    position: "absolute",
+    left: spacing.s4,
+    right: spacing.s4,
+    gap: spacing.s2,
+    padding: spacing.s2,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    ...shadows.cloud2,
+  },
+  semLocalizacao: { ...typography.bodySm, color: colors.onSurfaceVariant, paddingHorizontal: spacing.s2 },
+  cartaoBotoes: { flexDirection: "row", gap: spacing.s2 },
+  verDetalhes: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verDetalhesTexto: { ...typography.labelLg, color: colors.onPrimary },
+  fecharCartao: {
+    width: 48,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listaArea: { flex: 1, minHeight: 0 },
   buscaCampo: {
     flex: 1,
     fontFamily: fontes.texto,
@@ -383,22 +615,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarLetra: { ...typography.titleMd, fontWeight: "700", color: colors.onPrimaryContainer },
-  folha: {
-    flex: 1,
-    marginTop: -28,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-  },
-  alca: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.outlineVariant,
-    marginTop: spacing.s3,
-  },
   cabecalho: {
     paddingHorizontal: spacing.s4,
     paddingTop: spacing.s3,
