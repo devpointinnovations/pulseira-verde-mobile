@@ -18,8 +18,14 @@ describe("PrivacidadeScreen", () => {
   test("identifica o controlador e o e-mail de contato do titular", () => {
     render(<PrivacidadeScreen navigation={{ goBack: jest.fn() }} />);
 
-    expect(screen.getByText(/controlador\) é Gabriel Vogado/)).toBeTruthy();
+    expect(screen.getByText(/controlador\) é a Dev Point Innovations LTDA/)).toBeTruthy();
     expect(screen.getByText(/privacidade@saudemonitor\.dev/)).toBeTruthy();
+  });
+
+  test("não cita pessoa física como controlador dos dados", () => {
+    render(<PrivacidadeScreen navigation={{ goBack: jest.fn() }} />);
+
+    expect(screen.queryByText(/Gabriel Vogado/)).toBeNull();
   });
 
   test("trata localização em hospital como dado sensível com consentimento (art. 11)", () => {
