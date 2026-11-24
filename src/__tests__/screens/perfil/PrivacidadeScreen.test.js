@@ -18,7 +18,7 @@ describe("PrivacidadeScreen", () => {
   test("identifica o controlador e o e-mail de contato do titular", () => {
     render(<PrivacidadeScreen navigation={{ goBack: jest.fn() }} />);
 
-    expect(screen.getByText(/controlador\) é Gabriel Vogado/)).toBeTruthy();
+    expect(screen.getByText(/controlador\) é a Dev Point Innovations LTDA/)).toBeTruthy();
     expect(screen.getByText(/privacidade@saudemonitor\.dev/)).toBeTruthy();
   });
 
