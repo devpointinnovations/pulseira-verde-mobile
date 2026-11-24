@@ -22,6 +22,12 @@ describe("PrivacidadeScreen", () => {
     expect(screen.getByText(/privacidade@saudemonitor\.dev/)).toBeTruthy();
   });
 
+  test("não cita pessoa física como controlador dos dados", () => {
+    render(<PrivacidadeScreen navigation={{ goBack: jest.fn() }} />);
+
+    expect(screen.queryByText(/Gabriel Vogado/)).toBeNull();
+  });
+
   test("trata localização em hospital como dado sensível com consentimento (art. 11)", () => {
     render(<PrivacidadeScreen navigation={{ goBack: jest.fn() }} />);
 
