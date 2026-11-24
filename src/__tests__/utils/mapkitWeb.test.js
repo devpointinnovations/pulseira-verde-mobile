@@ -71,6 +71,15 @@ describe("mapkit web — Camera.setCamera", () => {
     expect(mockMapa.flyTo).toHaveBeenCalledWith({ center: [-47.8, -15.7], zoom: 14, duration: 0 });
   });
 
+  test("com padding, repassa ao flyTo para centralizar na área livre da tela", () => {
+    const { cameraRef } = renderizarMapaComCamera();
+    const padding = { top: 100, right: 0, bottom: 400, left: 0 };
+
+    cameraRef.current.setCamera({ centerCoordinate: [-47.8, -15.7], padding });
+
+    expect(mockMapa.flyTo).toHaveBeenCalledWith({ center: [-47.8, -15.7], duration: 0, padding });
+  });
+
   test("só com zoomLevel, não repassa `center`", () => {
     const { cameraRef } = renderizarMapaComCamera();
 
