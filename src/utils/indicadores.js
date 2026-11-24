@@ -18,3 +18,33 @@ export function avaliacaoSuficiente(indicadores) {
     indicadores?.nAvaliacoes >= 5
   );
 }
+
+const TENDENCIAS = ["SUBINDO", "ESTAVEL", "CAINDO"];
+
+/**
+ * Tendência simples da nota (E4-06): nota dos últimos 30 dias contra a dos 30 anteriores,
+ * calculada no servidor. Devolve o sentido, a frase lida na tela (e pelo leitor de tela) e se
+ * a tendência é preliminar (menos de 10 avaliações em algum dos períodos), ou `null` quando o
+ * servidor não mandou tendência ou a nota não pode ser exibida (RN-15).
+ *
+ * @param {{ tendenciaNota?: string|null, variacaoNota?: number|null, tendenciaPreliminar?: boolean|null }} indicadores
+ * @returns {{ sentido: "SUBINDO"|"ESTAVEL"|"CAINDO", frase: string, preliminar: boolean } | null}
+ */
+export function descreverTendencia(indicadores) {
+  const sentido = indicadores?.tendenciaNota;
+  if (!avaliacaoSuficiente(indicadores) || !TENDENCIAS.includes(sentido)) {
+    return null;
+  }
+  const preliminar = indicadores.tendenciaPreliminar === true;
+  if (sentido === "ESTAVEL") {
+    return { sentido, frase: "Nota estável em relação aos 30 dias anteriores", preliminar };
+  }
+  // `Number(null)` daria 0: só aceita número de verdade.
+  const variacao = indicadores.variacaoNota;
+  if (typeof variacao !== "number" || !Number.isFinite(variacao)) {
+    return null;
+  }
+  const verbo = sentido === "SUBINDO" ? "subiu" : "caiu";
+  const valor = Math.abs(variacao).toFixed(1).replace(".", ",");
+  return { sentido, frase: `Nota ${verbo} ${valor} em relação aos 30 dias anteriores`, preliminar };
+}
