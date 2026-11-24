@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Mail, MapPin, MapPinCheck, Navigation, Phone, Share2 } from "lucide-react-native";
+import {
+  Mail,
+  MapPin,
+  MapPinCheck,
+  Minus,
+  Navigation,
+  Phone,
+  Share2,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react-native";
 import {
   CSButton,
   CSHeader,
@@ -17,7 +27,7 @@ import { useCheckinNoHospital } from "../../visitas/hooks/useCheckinNoHospital";
 import { useVisitaAtivaDaTela } from "../../visitas/hooks/useVisitaAtivaDaTela";
 import { calcularCentroide, geojsonParaCoordenadas } from "../../../utils/geojson";
 import { formatarData, formatarNota, formatarPeriodo } from "../../../utils/format";
-import { avaliacaoSuficiente } from "../../../utils/indicadores";
+import { avaliacaoSuficiente, descreverTendencia } from "../../../utils/indicadores";
 
 function textoOuNulo(valor) {
   return typeof valor === "string" && valor.trim() ? valor : null;
@@ -38,6 +48,26 @@ function Etiqueta({ texto, destaque = false }) {
   return (
     <View style={[styles.etiqueta, destaque && styles.etiquetaDestaque]}>
       <Text style={[styles.etiquetaTexto, destaque && styles.etiquetaTextoDestaque]}>{texto}</Text>
+    </View>
+  );
+}
+
+const ICONE_TENDENCIA = { SUBINDO: TrendingUp, ESTAVEL: Minus, CAINDO: TrendingDown };
+
+/**
+ * Tendência simples da nota (E4-06): seta, frase e o selo "Preliminar" quando há poucas
+ * avaliações. O leitor de tela lê a frase inteira, com o selo, como um item só.
+ */
+function Tendencia({ tendencia }) {
+  const Icone = ICONE_TENDENCIA[tendencia.sentido];
+  const rotulo = tendencia.preliminar
+    ? `${tendencia.frase}. Preliminar: ainda há poucas avaliações.`
+    : `${tendencia.frase}.`;
+  return (
+    <View accessible accessibilityLabel={rotulo} testID="tendencia-nota" style={styles.tendencia}>
+      <Icone size={18} color={colors.onSurfaceVariant} />
+      <Text style={styles.tendenciaTexto}>{tendencia.frase}</Text>
+      {tendencia.preliminar ? <Etiqueta texto="Preliminar" /> : null}
     </View>
   );
 }
@@ -159,6 +189,7 @@ export default function HospitalDetalheScreen({ navigation, route }) {
   const temIndicadores = avaliacaoSuficiente(dadosIndicadores);
   const espera = dadosIndicadores?.tempoMedianoMinutos;
   const periodo = temIndicadores ? formatarPeriodo(dadosIndicadores.periodo) : null;
+  const tendencia = descreverTendencia(dadosIndicadores);
 
   const tipoUnidade = textoOuNulo(hospital.tipoUnidade);
   const horarioTexto = textoOuNulo(hospital.horarioFuncionamento);
@@ -250,6 +281,8 @@ export default function HospitalDetalheScreen({ navigation, route }) {
         ) : (
           <Text style={styles.semIndicadores}>Ainda sem avaliações suficientes</Text>
         )}
+
+        {tendencia ? <Tendencia tendencia={tendencia} /> : null}
 
         {temIndicadores ? (
           <View>
@@ -345,6 +378,8 @@ const styles = StyleSheet.create({
   esperaValor: { fontFamily: fontes.texto, fontSize: 40, lineHeight: 46, fontWeight: "800", color: colors.onPrimaryContainer },
   esperaUnidade: { ...typography.titleLg, color: colors.onPrimaryContainer },
   esperaRotulo: { ...typography.bodyMd, color: colors.onPrimaryContainer },
+  tendencia: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.s2 },
+  tendenciaTexto: { ...typography.bodyMd, color: colors.onSurface, flexShrink: 1 },
   transparencia: { ...typography.bodySm, color: colors.onSurfaceVariant },
   semIndicadores: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   acoes: { flexDirection: "row", gap: spacing.s3 },
