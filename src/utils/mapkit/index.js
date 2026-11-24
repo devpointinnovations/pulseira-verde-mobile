@@ -98,11 +98,13 @@ export const Camera = forwardRef(function Camera({ centerCoordinate, zoomLevel }
   useImperativeHandle(
     ref,
     () => ({
-      setCamera: ({ centerCoordinate: centro, zoomLevel: zoom, animationDuration }) => {
+      setCamera: ({ centerCoordinate: centro, zoomLevel: zoom, animationDuration, padding }) => {
         // Só repassa o que veio: centralizar sem `zoomLevel` mantém o zoom do usuário.
         const parada = { duration: animationDuration ?? 0, easing: animationDuration ? "ease" : undefined };
         if (centro !== undefined) parada.center = centro;
         if (zoom !== undefined) parada.zoom = zoom;
+        // `padding` desloca o centro para a área livre (a folha cobre parte do mapa).
+        if (padding !== undefined) parada.padding = padding;
         moverCamera(cameraRef.current, parada);
       },
       // Mesma assinatura do SDK anterior: cantos nordeste e sudoeste `[lng, lat]`. A v11

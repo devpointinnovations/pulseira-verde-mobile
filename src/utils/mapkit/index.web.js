@@ -119,13 +119,14 @@ export const Camera = forwardRef(function Camera({ centerCoordinate, zoomLevel }
   useImperativeHandle(
     ref,
     () => ({
-      setCamera: ({ centerCoordinate: centro, zoomLevel: zoom, animationDuration }) => {
+      setCamera: ({ centerCoordinate: centro, zoomLevel: zoom, animationDuration, padding }) => {
         // Só repassa o que veio: no GL JS, `flyTo({ zoom: undefined })` conta como
         // "zoom informado" (`'zoom' in options`), vira NaN e o voo é descartado sem erro —
         // a câmera simplesmente não se mexia ao centralizar sem alterar o zoom.
         const opcoes = { duration: animationDuration ?? 0 };
         if (centro !== undefined) opcoes.center = centro;
         if (zoom !== undefined) opcoes.zoom = zoom;
+        if (padding !== undefined) opcoes.padding = padding;
         mapa?.flyTo(opcoes);
       },
       fitBounds: (nordeste, sudoeste, padding, duration) => {

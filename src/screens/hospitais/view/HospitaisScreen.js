@@ -328,9 +328,10 @@ export default function HospitaisScreen({ navigation }) {
   }, [busca, filtro, pertoDeMim, posicao, erro, recarregarCatalogo, navigation]);
 
   const margemSuperior = insets.top + spacing.s3 + 56 + spacing.s4;
-  const margemInferior = alturaDaParada("recolhida", alturaUtil) + ALTURA_DO_CARTAO + spacing.s4;
   const semLocalizacao = Boolean(selecionado) && !centroDoHospital(selecionado);
   const mostrarCartao = Boolean(selecionado) && parada !== "expandida";
+  // Área do mapa coberta por baixo: a folha na altura de agora e, se houver, o cartão acima dela.
+  const margemInferior = alturaDaParada(parada, alturaUtil) + (mostrarCartao ? ALTURA_DO_CARTAO : 0) + spacing.s4;
 
   return (
     <View

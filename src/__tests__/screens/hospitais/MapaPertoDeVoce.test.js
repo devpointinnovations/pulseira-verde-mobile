@@ -160,7 +160,7 @@ describe("MapaPertoDeVoce", () => {
   });
 
   test("um novo sinal de recentrar leva a câmera à pessoa, ou a Brasília sem GPS", () => {
-    const props = { hospitais: [], altura: 800 };
+    const props = { hospitais: [], altura: 800, margemSuperior: 120, margemInferior: 340 };
     const { rerender } = render(
       <MapaPertoDeVoce {...props} posicao={{ latitude: -15.8, longitude: -47.9 }} sinalDeRecentrar={0} />
     );
@@ -171,6 +171,8 @@ describe("MapaPertoDeVoce", () => {
       centerCoordinate: [-47.9, -15.8],
       zoomLevel: 12.5,
       animationDuration: 600,
+      // A pessoa fica na faixa visível entre a busca e a folha, não atrás dela.
+      padding: { top: 120, right: 0, bottom: 340, left: 0 },
     });
 
     rerender(<MapaPertoDeVoce {...props} posicao={null} sinalDeRecentrar={2} />);
@@ -178,6 +180,7 @@ describe("MapaPertoDeVoce", () => {
       centerCoordinate: [-47.8828, -15.7939],
       zoomLevel: 11,
       animationDuration: 600,
+      padding: { top: 120, right: 0, bottom: 340, left: 0 },
     });
   });
 });

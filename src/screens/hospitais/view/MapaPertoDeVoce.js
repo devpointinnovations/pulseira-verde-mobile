@@ -92,7 +92,8 @@ function MapaPertoDeVoce({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selecionadoId]);
 
-  // O botão de localização volta a câmera para a pessoa (ou para Brasília, sem GPS).
+  // O botão de localização volta a câmera para a pessoa (ou para Brasília, sem GPS). O centro
+  // do mapa fica atrás da folha; o padding o leva ao meio da faixa livre entre a busca e a folha.
   useEffect(() => {
     if (!sinalDeRecentrar) {
       return;
@@ -101,6 +102,7 @@ function MapaPertoDeVoce({
       centerCoordinate: [centro.longitude, centro.latitude],
       zoomLevel: posicaoRef.current ? ZOOM_COM_GPS : ZOOM_SEM_GPS,
       animationDuration: DURACAO_DA_CAMERA_MS,
+      padding: { top: margemSuperior, right: 0, bottom: margemInferior, left: 0 },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sinalDeRecentrar]);
