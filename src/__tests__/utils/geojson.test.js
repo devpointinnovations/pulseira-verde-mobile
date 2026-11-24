@@ -10,6 +10,8 @@ import {
   centroDoHospital,
   LADOS_CIRCULO,
   geofencesParaFeatureCollection,
+  calcularLimitesDoEnquadramento,
+  MEIA_LARGURA_MINIMA_GRAUS,
 } from "../../utils/geojson";
 
 describe("utils/geojson — geojsonParaCoordenadas", () => {
@@ -189,5 +191,26 @@ describe("E8-03 — geofence reconstruído a partir de centro e raio", () => {
     expect(geofencesParaFeatureCollection([{ id: "x" }]).features).toHaveLength(0);
     expect(circuloParaCoordenadas(null, 150)).toEqual([]);
     expect(circuloParaCoordenadas({ latitude: -15.78, longitude: -47.88 }, 0)).toEqual([]);
+  });
+});
+
+describe("utils/geojson — calcularLimitesDoEnquadramento", () => {
+  test("devolve os cantos nordeste e sudoeste [lng, lat] que cobrem os pontos", () => {
+    const [nordeste, sudoeste] = calcularLimitesDoEnquadramento([
+      { latitude: -15.7, longitude: -47.8 },
+      { latitude: -15.9, longitude: -48.0 },
+    ]);
+
+    expect(nordeste[0]).toBeCloseTo(-47.8);
+    expect(nordeste[1]).toBeCloseTo(-15.7);
+    expect(sudoeste[0]).toBeCloseTo(-48.0);
+    expect(sudoeste[1]).toBeCloseTo(-15.9);
+  });
+
+  test("um ponto só (ou todos no mesmo lugar) ganha caixa de área mínima, não zero", () => {
+    const [nordeste, sudoeste] = calcularLimitesDoEnquadramento([{ latitude: -15.7, longitude: -47.8 }]);
+
+    expect(nordeste[0] - sudoeste[0]).toBeCloseTo(2 * MEIA_LARGURA_MINIMA_GRAUS);
+    expect(nordeste[1] - sudoeste[1]).toBeCloseTo(2 * MEIA_LARGURA_MINIMA_GRAUS);
   });
 });
