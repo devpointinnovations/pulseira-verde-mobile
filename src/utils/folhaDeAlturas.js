@@ -34,6 +34,7 @@ export function paradaAoSoltar(alturaAtual, velocidadeY, alturaUtil) {
   return PARADAS.reduce((melhor, parada) =>
     Math.abs(alturaDaParada(parada, alturaUtil) - alvo) < Math.abs(alturaDaParada(melhor, alturaUtil) - alvo)
       ? parada
-      : melhor
+      : melhor,
+    PARADAS[0]
   );
 }
