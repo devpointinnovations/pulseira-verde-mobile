@@ -164,6 +164,16 @@ describe("mapkit nativo — Camera.fitBounds", () => {
     });
   });
 
+  test("padding por lado passa direto, para a tela deixar livres a busca e o cartão", () => {
+    const { cameraRef } = renderizarCamera();
+
+    cameraRef.current.fitBounds([-47.8, -15.7], [-48.0, -15.9], { top: 120, right: 48, bottom: 300, left: 48 }, 600);
+
+    expect(mockSetStop).toHaveBeenCalledWith(
+      expect.objectContaining({ padding: { top: 120, right: 48, bottom: 300, left: 48 } })
+    );
+  });
+
   test("sem padding nem duração, enquadra sem margem e sem animação", () => {
     const { cameraRef } = renderizarCamera();
 

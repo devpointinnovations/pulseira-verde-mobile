@@ -558,3 +558,64 @@ describe("HospitalDetalheScreen (F-03/F-04) — crash do check-in manual", () =>
     expect(HospitalService.buscarIndicadores).not.toHaveBeenCalled();
   });
 });
+
+describe("HospitalDetalheScreen — tendência simples da nota (E4-06)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    definirUsuarioDaSessao(null);
+    HospitalService.buscarPorId.mockResolvedValue(HOSPITAL);
+    VisitaService.buscarAtiva.mockResolvedValue({ visita: null });
+  });
+
+  test("mostra a frase da tendência e o leitor de tela lê a frase", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue({
+      ...INDICADORES,
+      tendenciaNota: "SUBINDO",
+      variacaoNota: 0.4,
+      tendenciaPreliminar: false,
+    });
+    renderizar();
+
+    expect(await screen.findByText("Nota subiu 0,4 em relação aos 30 dias anteriores")).toBeTruthy();
+    expect(screen.getByLabelText("Nota subiu 0,4 em relação aos 30 dias anteriores.")).toBeTruthy();
+    expect(screen.queryByText("Preliminar")).toBeNull();
+  });
+
+  test("tendência preliminar mostra o selo e o leitor de tela avisa", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue({
+      ...INDICADORES,
+      tendenciaNota: "CAINDO",
+      variacaoNota: -0.8,
+      tendenciaPreliminar: true,
+    });
+    renderizar();
+
+    expect(await screen.findByText("Nota caiu 0,8 em relação aos 30 dias anteriores")).toBeTruthy();
+    expect(screen.getByText("Preliminar")).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        "Nota caiu 0,8 em relação aos 30 dias anteriores. Preliminar: ainda há poucas avaliações."
+      )
+    ).toBeTruthy();
+  });
+
+  test("nota estável aparece sem número", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue({
+      ...INDICADORES,
+      tendenciaNota: "ESTAVEL",
+      variacaoNota: 0.1,
+      tendenciaPreliminar: false,
+    });
+    renderizar();
+
+    expect(await screen.findByText("Nota estável em relação aos 30 dias anteriores")).toBeTruthy();
+  });
+
+  test("sem tendência do servidor a tela não mostra nada dela", async () => {
+    HospitalService.buscarIndicadores.mockResolvedValue(INDICADORES);
+    renderizar();
+
+    expect(await screen.findByText("Hospital Central")).toBeTruthy();
+    expect(screen.queryByTestId("tendencia-nota")).toBeNull();
+  });
+});

@@ -44,7 +44,7 @@ export default function PrivacidadeScreen({ navigation }) {
 
         <Text style={styles.sectionTitle}>1. Quem cuida dos seus dados</Text>
         <Text style={styles.paragraph}>
-          O responsável (controlador) é Gabriel Vogado, desenvolvedor da Pulseira Verde. Para
+          O responsável (controlador) é a Dev Point Innovations LTDA (CNPJ 50.018.375/0001-57), desenvolvedora da Pulseira Verde. Para
           qualquer assunto sobre seus dados, escreva para {EMAIL_PRIVACIDADE}.
         </Text>
 
