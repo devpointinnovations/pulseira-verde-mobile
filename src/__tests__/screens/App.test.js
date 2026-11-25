@@ -301,6 +301,32 @@ describe("App — abrir formulário a partir da notificação de feedback (RN-09
     expect(await screen.findByText("Você passou pela triagem?")).toBeOnTheScreen();
   });
 
+  test("notificação de unidades sobrepostas abre o seletor com as unidades (E2-04)", async () => {
+    render(<App />);
+    const tratarResposta = callbackDeResposta();
+
+    await act(async () => {
+      await tratarResposta(
+        respostaDeNotificacao({
+          escolhaUnidade: {
+            tipo: "desempate",
+            opcoes: [
+              { hospitalId: "h1", nome: "Hospital Regional de Taguatinga" },
+              { hospitalId: "h2", nome: "Cepav - Azaleia" },
+            ],
+            posicao: { type: "Point", coordinates: [-48.07, -15.89] },
+            entrada: "2026-11-24T22:00:00.000Z",
+          },
+        })
+      );
+    });
+
+    expect(await screen.findByText("Em qual unidade você está?")).toBeOnTheScreen();
+    expect(screen.getByText("Cepav - Azaleia")).toBeOnTheScreen();
+    // Não é feedback: nenhuma pendência é consultada.
+    expect(screen.queryByText("Você passou pela triagem?")).toBeNull();
+  });
+
   test("cold start: a notificação que abriu o app do zero leva ao feedback (bug 'Fechar tudo')", async () => {
     // Bug relatado: após "Fechar tudo", tocar a notificação abria a tela inicial. O
     // listener ao vivo não recebe a resposta que INICIA o app — ela vem por

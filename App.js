@@ -32,6 +32,7 @@ import { queryClient } from "./src/core/query/queryClient";
 import { configurarQueryNoApp } from "./src/core/query/setupQueryClient";
 import { hidratarSessao } from "./src/core/stores/sessaoStore";
 import VisitaAtivaSync from "./src/screens/visitas/hooks/VisitaAtivaSync";
+import EscolhaUnidadeSheet from "./src/screens/visitas/view/EscolhaUnidadeSheet";
 import AtualizacaoObrigatoria from "./src/screens/atualizacao/AtualizacaoObrigatoria";
 import OnboardingScreen from "./src/screens/onboarding/view/OnboardingScreen";
 import { onboardingConcluido } from "./src/screens/onboarding/service/OnboardingService";
@@ -225,6 +226,8 @@ export default function App() {
     // Primeira tela: a apresentação (onboarding) até a pessoa concluir ou pular; `null`
     // enquanto a leitura do aparelho não volta, para o app não piscar as abas antes.
     const [telaInicial, setTelaInicial] = useState(null);
+    // Unidades sobrepostas (E2-04/RN-05): dado da notificação que pede a escolha; null = fechado.
+    const [escolhaUnidade, setEscolhaUnidade] = useState(null);
 
     useEffect(() => {
         // `onboardingConcluido` não rejeita: falha na leitura conta como concluída.
@@ -245,6 +248,10 @@ export default function App() {
             // E3-01/E3-03: abre o formulário de feedback quando o usuário toca na
             // notificação local de feedback pós-saída.
             const data = resposta?.notification?.request?.content?.data;
+            if (data?.escolhaUnidade) {
+                setEscolhaUnidade(data.escolhaUnidade);
+                return;
+            }
             if (!data?.abrirFeedback || !data?.visitaId) {
                 return;
             }
@@ -325,6 +332,7 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
             {/* Heartbeat e geofencing seguem a visita ativa em qualquer tela (§4.2.2). */}
             <VisitaAtivaSync />
+            <EscolhaUnidadeSheet escolha={escolhaUnidade} onClose={() => setEscolhaUnidade(null)} />
             <SafeAreaProvider>
                 {/* APP-03: abaixo da versão mínima, a navegação dá lugar à tela de atualização. */}
                 <AtualizacaoObrigatoria>
