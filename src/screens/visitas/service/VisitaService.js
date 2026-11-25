@@ -41,10 +41,18 @@ class VisitaService {
    * `posicao` é obrigatória para GEOFENCE; `dispositivoId` permite visita anônima.
    * Quando não autenticado, o `dispositivoId` é gerado/persistido automaticamente
    * (modo anônimo sem login — §3.3 / RN-03).
-   * Em caso de empate de geofences (E2-04), o backend responde 409 com `candidatos`.
+   * Em caso de empate de geofences (E2-04), o backend responde 409 com `candidatos`; a pessoa
+   * escolhe e o app repete o check-in com `escolhidoNoDesempate`, a posição e o `ocorridoEm`
+   * (ISO) da chegada. A resposta traz `alternativas`: outras unidades que continham o local.
    */
-  static async checkin({ hospitalId, origem, posicao, dispositivoId }) {
+  static async checkin({ hospitalId, origem, posicao, dispositivoId, ocorridoEm, escolhidoNoDesempate }) {
     const corpo = { hospitalId, origem, posicao };
+    if (escolhidoNoDesempate) {
+      corpo.escolhidoNoDesempate = true;
+    }
+    if (ocorridoEm) {
+      corpo.ocorridoEm = ocorridoEm;
+    }
     if (dispositivoId) {
       corpo.dispositivoId = dispositivoId;
     } else if (!(await TokenStorage.getAccessToken())) {
@@ -69,10 +77,22 @@ class VisitaService {
           chave: `checkin:${hospitalId}:${Date.now()}`,
           tipo: "checkin",
           corpo,
+          ocorridoEm,
         });
       }
       throw erro;
     }
+  }
+
+  /**
+   * Troca a unidade da visita ativa por outra que continha o local do check-in automático
+   * (E2-04/RN-05). O `dispositivoId` cobre a visita anônima, como no checkout.
+   */
+  static async trocarHospital(id, hospitalId) {
+    return request(`${BASE_PATH}/${id}/hospital`, {
+      method: "PATCH",
+      body: { hospitalId, dispositivoId: await DispositivoId.obterSeDisponivel() },
+    });
   }
 
   /**

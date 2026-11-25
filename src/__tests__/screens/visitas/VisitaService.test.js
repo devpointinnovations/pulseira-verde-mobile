@@ -46,6 +46,38 @@ describe("VisitaService (Épico 02)", () => {
     expect(body.origem).toBe("GEOFENCE");
   });
 
+  test("checkin escolhido no desempate leva a escolha e o horário real da chegada", async () => {
+    await VisitaService.checkin({
+      hospitalId: "h2",
+      origem: "GEOFENCE",
+      posicao: { type: "Point", coordinates: [-47.88, -15.79] },
+      ocorridoEm: "2026-11-24T22:00:00.000Z",
+      escolhidoNoDesempate: true,
+    });
+
+    const body = JSON.parse(chamadas[0].body);
+    expect(body.escolhidoNoDesempate).toBe(true);
+    expect(body.ocorridoEm).toBe("2026-11-24T22:00:00.000Z");
+  });
+
+  test("checkin comum não envia escolhidoNoDesempate nem ocorridoEm", async () => {
+    await VisitaService.checkin({ hospitalId: "h1", origem: "MANUAL" });
+
+    const body = JSON.parse(chamadas[0].body);
+    expect(body).not.toHaveProperty("escolhidoNoDesempate");
+    expect(body).not.toHaveProperty("ocorridoEm");
+  });
+
+  test("trocarHospital faz PATCH em /hospital com o hospital novo e o dispositivoId", async () => {
+    await VisitaService.checkin({ hospitalId: "h1", origem: "MANUAL" }); // gera o dispositivoId anônimo
+    await VisitaService.trocarHospital("v1", "h2");
+
+    const c = chamadas[1];
+    expect(c.method).toBe("PATCH");
+    expect(c.url).toContain("/api/v1/visitas/v1/hospital");
+    expect(JSON.parse(c.body)).toMatchObject({ hospitalId: "h2", dispositivoId: expect.stringContaining("anon-") });
+  });
+
   test("checkin anônimo anexa dispositivoId automaticamente (modo sem login)", async () => {
     await VisitaService.checkin({ hospitalId: "h1", origem: "MANUAL" });
 
