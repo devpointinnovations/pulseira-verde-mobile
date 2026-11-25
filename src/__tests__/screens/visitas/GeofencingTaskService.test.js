@@ -65,6 +65,15 @@ jest.mock("../../../config/monitoramento", () => ({
   registrarErro: (...args) => mockRegistrarErro(...args),
 }));
 
+// Os avisos de unidades sobrepostas (E2-04) têm teste próprio; aqui só se confere quando saem.
+const mockAvisarDesempate = jest.fn();
+const mockAvisarTroca = jest.fn();
+jest.mock("../../../screens/visitas/service/EscolhaUnidadeService", () => ({
+  __esModule: true,
+  avisarDesempate: (...args) => mockAvisarDesempate(...args),
+  avisarTroca: (...args) => mockAvisarTroca(...args),
+}));
+
 const mockInvalidarVisitaAtiva = jest.fn(() => Promise.resolve());
 jest.mock("../../../core/query/queryClient", () => ({
   __esModule: true,
@@ -614,6 +623,77 @@ describe("falhas e casos de borda", () => {
       origem: "GEOFENCE",
     });
     expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("empate de geofences (409 com candidatos) avisa a pessoa com a posição e o horário da chegada", async () => {
+    const candidatos = [
+      { hospitalId: "h1", nome: "Hospital A", distanciaMetros: 10 },
+      { hospitalId: "h2", nome: "Hospital B", distanciaMetros: 10.5 },
+    ];
+    VisitaService.checkin.mockRejectedValue(
+      Object.assign(new Error("empate"), { status: 409, data: { candidatos } })
+    );
+    const { executarTask } = carregarServico();
+    const chegada = Date.now();
+
+    await entrar(executarTask);
+    await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+    expect(mockAvisarDesempate).toHaveBeenCalledTimes(1);
+    expect(mockAvisarDesempate).toHaveBeenCalledWith({
+      candidatos,
+      posicao: { type: "Point", coordinates: [HOSPITAL_LON, HOSPITAL_LAT] },
+      entrada: new Date(chegada).toISOString(),
+    });
+    expect(mockRegistrarErro).not.toHaveBeenCalled();
+  });
+
+  it("409 sem candidatos (visita ativa em outro hospital) não avisa", async () => {
+    VisitaService.checkin.mockRejectedValue(Object.assign(new Error("ativa"), { status: 409 }));
+    const { executarTask } = carregarServico();
+
+    await entrar(executarTask);
+    await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+    expect(mockAvisarDesempate).not.toHaveBeenCalled();
+  });
+
+  it("visita criada com unidades sobrepostas avisa para trocar; a repetida não", async () => {
+    const alternativas = [{ hospitalId: "h2", nome: "Hospital B", distanciaMetros: 40 }];
+    VisitaService.checkin.mockResolvedValue({ id: "v1", criado: true, alternativas });
+    const { executarTask } = carregarServico();
+
+    await entrar(executarTask);
+    await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+    expect(mockAvisarTroca).toHaveBeenCalledWith({ visitaId: "v1", alternativas });
+
+    mockAvisarTroca.mockClear();
+    VisitaService.checkin.mockResolvedValue({ id: "v1", criado: false, alternativas: [] });
+    await entrar(executarTask);
+    await jest.advanceTimersByTimeAsync(2 * 60 * 1000);
+
+    expect(mockAvisarTroca).not.toHaveBeenCalled();
+  });
+
+  it("depois da troca de unidade a região guardada do hospital antigo é descartada", async () => {
+    const { sincronizarVisitaAtiva } = carregarServico();
+    await AsyncStorage.setItem(
+      "@saude_monitor:geofencing",
+      JSON.stringify({
+        visita: { id: "v1", hospitalId: "h1", entrada: "2026-11-24T10:00:00Z", origem: "GEOFENCE", regiao: { raio: 100 } },
+        entradas: {},
+        saidas: {},
+      })
+    );
+
+    await sincronizarVisitaAtiva("v1", "2026-11-24T10:00:00Z", "h1", "GEOFENCE");
+    expect(JSON.parse(await AsyncStorage.getItem("@saude_monitor:geofencing")).visita.regiao).toEqual({ raio: 100 });
+
+    await sincronizarVisitaAtiva("v1", "2026-11-24T10:00:00Z", "h2", "GEOFENCE");
+    const visita = JSON.parse(await AsyncStorage.getItem("@saude_monitor:geofencing")).visita;
+    expect(visita).toMatchObject({ id: "v1", hospitalId: "h2" });
+    expect(visita.regiao).toBeUndefined();
   });
 
   it("conflito de geofences (409) é silencioso; outros erros são registrados", async () => {

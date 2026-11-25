@@ -9,6 +9,7 @@ import CatalogoLocal, {
 import VisitaService from "./VisitaService";
 import { invalidarVisitaAtiva } from "../../../core/query/queryClient";
 import { agendarFeedback } from "../../feedback/service/FeedbackNotificationService";
+import { avisarDesempate, avisarTroca } from "./EscolhaUnidadeService";
 import { centroDoHospital } from "../../../utils/geojson";
 import { haversineMetros } from "../../../utils/distancia";
 import { duracaoMinutosDesde } from "../../../utils/format";
@@ -303,8 +304,10 @@ async function posicaoAtual() {
 /**
  * Envia o check-in automático. Devolve `true` quando vale tentar de novo (sem posição
  * do aparelho no momento): a pessoa continua dentro da região e não haverá outro Enter.
+ * `desde` é o instante (ms) em que a entrada foi vista, para a escolha de unidade registrar
+ * a chegada real.
  */
-async function confirmarEntrada(hospitalId) {
+async function confirmarEntrada(hospitalId, desde = Date.now()) {
   const minhaGeracao = geracao;
   const posicao = await posicaoAtual();
   if (!posicao) {
@@ -331,6 +334,12 @@ async function confirmarEntrada(hospitalId) {
         };
       });
     }
+    // Geofences sobrepostos sem empate (E2-04/RN-05): a visita nasceu na unidade mais próxima e
+    // a pessoa pode trocá-la pelas outras que também continham o local (só na visita nova: o
+    // Enter da segunda unidade devolve a mesma visita, sem aviso repetido).
+    if (resposta?.criado && resposta.alternativas?.length) {
+      void avisarTroca({ visitaId: resposta.id, alternativas: resposta.alternativas });
+    }
     // Com o app aberto em qualquer aba, o observador da visita ativa (VisitaAtivaSync)
     // liga o heartbeat da visita nova; em segundo plano não há quem observe e nada muda.
     void invalidarVisitaAtiva();
@@ -349,10 +358,18 @@ async function confirmarEntrada(hospitalId) {
       return false;
     }
 
-    // Conflito de geofences sobrepostos (HTTP 409, E2-04): a tarefa de background não
-    // tem UI para perguntar "qual hospital é este?" — o usuário resolve manualmente ao
-    // abrir o app e tocar em "Check-in" no card do hospital, na aba Hospitais, que trata
-    // o 409 exibindo os candidatos (HospitaisScreen).
+    // Empate de geofences sobrepostos (HTTP 409 com `candidatos`, E2-04): a tarefa de
+    // background não tem UI para perguntar "qual hospital é este?". Avisa por notificação; o
+    // toque abre o seletor (EscolhaUnidadeSheet), que registra a entrada com a posição e o
+    // horário reais da chegada. Sem retry aqui. O check-in manual no detalhe do hospital
+    // segue tratando o mesmo 409 (useCheckinNoHospital).
+    if (erro?.status === 409 && erro.data?.candidatos?.length) {
+      void avisarDesempate({
+        candidatos: erro.data.candidatos,
+        posicao,
+        entrada: new Date(desde).toISOString(),
+      });
+    }
     // Demais erros (rede, hospital inativo) seguem o mesmo caminho: sem retry aqui.
     if (erro?.status !== 409) {
       // eslint-disable-next-line no-console
@@ -548,7 +565,7 @@ export async function processarPendencias(agora = Date.now()) {
     Promise.resolve()
   );
   for (const { hospitalId, desde } of vencidas.entradas) {
-    const tentarDeNovo = await confirmarEntrada(hospitalId);
+    const tentarDeNovo = await confirmarEntrada(hospitalId, desde);
     if (tentarDeNovo && agora - desde < LIMITE_NOVA_TENTATIVA_ENTRADA_MS) {
       // Volta para a fila com o instante original: a próxima leitura do acompanhamento
       // (≈30 s) ou o timer tenta de novo, até a pessoa sair ou o limite vencer.
@@ -1093,7 +1110,9 @@ export async function sincronizarVisitaAtiva(
       entrada: entrada || anterior?.entrada || null,
       origem: origem || anterior?.origem || null,
     };
-    if (anterior?.regiao) {
+    // A região guardada é a do hospital antigo: depois da troca de unidade (E2-04) ela é
+    // buscada de novo para o hospital novo.
+    if (anterior?.regiao && estado.visita.hospitalId === anterior.hospitalId) {
       estado.visita.regiao = anterior.regiao;
     }
   });
