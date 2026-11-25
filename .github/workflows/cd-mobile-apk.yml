@@ -412,3 +412,5 @@ jobs:
           path: ${{ steps.apk.outputs.caminho }}
           retention-days: 30
           if-no-files-found: error
+
+# 25/11/2026: o sucesso deste workflow na develop dispara o release-dev.yml (pré-release dev na aba Releases).
