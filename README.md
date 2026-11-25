@@ -39,7 +39,7 @@ Consultar hospitais, ver notas e usar o mapa não exige conta. A conta é opcion
 
 <table>
 <tr>
-<td width="290" valign="top"><img src="doc/assets/readme/01-inicio.gif" alt="Tela inicial da Pulseira Verde explicando detecção automática, feedback rápido e avaliação pública" width="270"></td>
+<td width="290" valign="top"><img src="doc/assets/readme/01-inicio.gif" alt="Apresentação do primeiro acesso em três telas, com permissão de localização e avisos, e a tela Início com o mapa e a folha Perto de você" width="270"></td>
 <td valign="top">
 
 ### 1. Início
@@ -51,7 +51,7 @@ Depois disso, o **Início** é um mapa com a folha **Perto de você** por cima. 
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/02-hospitais.gif" alt="Lista de hospitais com nota e tempo, busca por nome e detalhe de um hospital" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/02-hospitais.gif" alt="Busca no Início, filtro Público e detalhe de um hospital com nota e tempo de espera" width="270"></td>
 <td valign="top">
 
 ### 2. Encontre um hospital
@@ -65,7 +65,7 @@ Na folha **Perto de você**, no Início, cada unidade mostra a nota de 1 a 5, qu
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/03-ranking.gif" alt="Ranking de hospitais por melhor nota e por menor tempo" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/03-ranking.gif" alt="Aba Ranking com os hospitais ordenados por melhor nota e por menor espera" width="270"></td>
 <td valign="top">
 
 ### 3. Compare no ranking
@@ -77,7 +77,7 @@ Hospitais com avaliações suficientes para a média fazer sentido vêm primeiro
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/04-mapa.gif" alt="Mapa com os hospitais e filtros de distância de 1, 5, 10 e 25 km" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/04-mapa.gif" alt="Folha Perto de você nas três alturas, botão de localizar e filtro Até 5 km no mapa do Início" width="270"></td>
 <td valign="top">
 
 ### 4. Veja o que está perto
@@ -87,7 +87,7 @@ No mapa do Início os hospitais aparecem em volta de você. O filtro **Até 5 km
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/05-checkin.gif" alt="Check-in manual com temporizador de permanência e botão Não estou aqui" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/05-checkin.gif" alt="Check-in manual com Estou aqui agora, temporizador de permanência e aviso Visita em andamento no Início" width="270"></td>
 <td valign="top">
 
 ### 5. A sua visita
@@ -99,19 +99,19 @@ No mapa do Início os hospitais aparecem em volta de você. O filtro **Até 5 km
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/06-avaliacao.gif" alt="Avaliação pendente na tela inicial e formulário curto de avaliação em etapas" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/06-avaliacao.gif" alt="Aviso Falta avaliar na aba Visitas e formulário curto de avaliação em etapas" width="270"></td>
 <td valign="top">
 
 ### 6. Conte como foi
 
-Depois da saída, o app avisa e a avaliação fica esperando na tela inicial por até 24 horas.
+Depois da saída, o app avisa e a avaliação fica esperando na aba **Visitas**, com o aviso **Falta avaliar**, por até 24 horas.
 
 São etapas curtas: triagem, especialidade e atendimento, receita e tratamento da equipe, e a nota da visita. Todas as perguntas, menos a nota, podem ser puladas. Uma visita vale uma avaliação.
 
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="doc/assets/readme/07-perfil.gif" alt="Login opcional, perfil e histórico de visitas e avaliações" width="270"></td>
+<td valign="top"><img src="doc/assets/readme/07-perfil.gif" alt="Perfil com conta opcional, entrada com e-mail e senha e histórico de visitas e avaliações" width="270"></td>
 <td valign="top">
 
 ### 7. Conta opcional e seus dados
