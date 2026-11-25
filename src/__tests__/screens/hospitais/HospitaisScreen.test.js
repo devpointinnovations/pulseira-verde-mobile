@@ -547,6 +547,29 @@ describe("HospitaisScreen — busca e seleção de hospital no mapa (Opção B, 
     expect(alturaDaFolha()).toBe("meio");
   });
 
+  test("o botão de localização centraliza na faixa livre acima da folha, em cada altura dela", async () => {
+    renderizar();
+    await (await naLista()).findByText("Hospital A");
+    const alca = screen.getByTestId("alca-da-folha");
+    const botao = screen.getByLabelText("Centralizar na minha posição");
+    const paddingDoUltimoPedido = () => mockCamera.setCamera.mock.calls.at(-1)[0].padding;
+
+    // Altura útil inicial de 700: meio = 40% (280) e expandida = 60% (420), mais 16 de folga.
+    fireEvent.press(botao);
+    expect(paddingDoUltimoPedido().bottom).toBe(296);
+
+    fireEvent(alca, "accessibilityAction", { nativeEvent: { actionName: "increment" } });
+    fireEvent.press(botao);
+    expect(paddingDoUltimoPedido().bottom).toBe(436);
+
+    // Recolhida volta ao meio ao recentrar, e é essa a altura que a folha terá.
+    fireEvent(alca, "accessibilityAction", { nativeEvent: { actionName: "decrement" } });
+    fireEvent(alca, "accessibilityAction", { nativeEvent: { actionName: "decrement" } });
+    fireEvent.press(botao);
+    expect(alturaDaFolha()).toBe("meio");
+    expect(paddingDoUltimoPedido().bottom).toBe(296);
+  });
+
   test("tocar no pin do hospital no mapa seleciona o hospital, e não abre o mapa completo", async () => {
     renderizar();
     await (await naLista()).findByText("Hospital A");

@@ -141,6 +141,15 @@ describe("mapkit nativo — Camera.setCamera", () => {
     expect(mockSetStop).toHaveBeenCalledWith({ center: [-47.8, -15.7], zoom: 14, duration: 0, easing: undefined });
   });
 
+  test("com padding, centraliza na área livre da tela (a folha cobre o resto do mapa)", () => {
+    const { cameraRef } = renderizarCamera();
+    const padding = { top: 100, right: 0, bottom: 400, left: 0 };
+
+    cameraRef.current.setCamera({ centerCoordinate: [-47.8, -15.7], animationDuration: 300, padding });
+
+    expect(mockSetStop).toHaveBeenCalledWith({ center: [-47.8, -15.7], duration: 300, easing: "ease", padding });
+  });
+
   test("só com zoomLevel, não manda `center`", () => {
     const { cameraRef } = renderizarCamera();
 

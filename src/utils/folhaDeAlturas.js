@@ -1,11 +1,14 @@
 /**
  * Alturas da folha "Perto de você" no Início: recolhida (só a alça e o título), no meio
- * (padrão) e expandida (lista quase inteira). Funções puras: o gesto fica no componente.
+ * (padrão) e expandida (lista, até 60% da tela). Funções puras: o gesto fica no componente.
  */
 export const PARADAS = ["recolhida", "meio", "expandida"];
 
-/** Fração da altura útil da tela que a folha ocupa em cada parada. */
-export const FRACAO_DA_PARADA = { recolhida: 0.2, meio: 0.58, expandida: 0.92 };
+/**
+ * Fração da altura útil da tela que a folha ocupa em cada parada. O teto de 60% (PO, 24/11)
+ * deixa sempre a barra de busca e parte do mapa à vista.
+ */
+export const FRACAO_DA_PARADA = { recolhida: 0.2, meio: 0.4, expandida: 0.6 };
 
 /** Quanto do impulso do dedo (px/ms) conta para decidir a parada: projeta o movimento adiante. */
 const PROJECAO_DO_IMPULSO_MS = 150;
