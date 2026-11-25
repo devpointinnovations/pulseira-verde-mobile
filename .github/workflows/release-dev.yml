@@ -1,0 +1,115 @@
+# Pre-release "dev": cada APK de dev (push na `develop`) ganha uma GitHub Release.
+#
+# Pedido do PO em 25/11/2026: as versoes de dev tambem aparecem na aba Releases, ao lado
+# das rcs de homologacao. E UMA Release so, rolante, com a tag `dev`: a cada build de dev
+# ela e apagada e recriada no commit novo, com o APK novo. Uma tag por build encheria a
+# lista de tags (todo merge na develop gera um APK).
+#
+# E pre-release de proposito: nunca vira a Release "latest" estavel, e a tag `dev` nao casa
+# com `v*-rc.*`, entao o calculo das rcs de homologacao (cd-homologacao.yml) nao a ve.
+#
+# Workflow separado, disparado por `workflow_run`, e nao um job dentro do
+# cd-mobile-apk.yml: aquele arquivo tambem e chamado pela homologacao com
+# `contents: read`, e um job com `contents: write` ali dentro derrubaria a rc na largada.
+name: Release - Pré-release DEV
+
+on:
+  workflow_run:
+    workflows: ['CD - Mobile (APK via Gradle)']
+    types: [completed]
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-dev
+  cancel-in-progress: false
+
+env:
+  API_URL_DEV: https://saude-monitor-backend-dev-uly57kmmia-rj.a.run.app
+
+jobs:
+  prerelease:
+    name: Pré-release dev
+    # So o push na develop que terminou bem. Dispatch manual pode ser variante debug ou
+    # branch de teste: nao vira Release.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # Se a develop ja andou, este APK e velho: o build do commit mais novo publica a
+      # Release dele. Evita a Release `dev` voltar para um commit antigo.
+      - name: Conferir que este é o commit mais novo da develop
+        id: atual
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          PONTA=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/develop | cut -f1)
+          if [ "$PONTA" != "$SHA" ]; then
+            echo "⏭️ develop já está em \`${PONTA:0:7}\`; \`${SHA:0:7}\` fica sem Release dev." >> "$GITHUB_STEP_SUMMARY"
+            echo "pular=sim" >> "$GITHUB_OUTPUT"
+          else
+            echo "pular=nao" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Baixar o APK dev
+        if: steps.atual.outputs.pular == 'nao'
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          pattern: apk-pulseira-verde-dev-*-${{ github.event.workflow_run.head_sha }}
+          merge-multiple: true
+          path: apk
+
+      - name: Recriar a pré-release dev
+        if: steps.atual.outputs.pular == 'nao'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          # Texto do commit e dado externo: so entra por variavel de ambiente.
+          MENSAGEM: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          set -euo pipefail
+          mapfile -t APKS < <(find apk -maxdepth 1 -name 'pulseira-verde-dev-*.apk')
+          if [ "${#APKS[@]}" -ne 1 ]; then
+            echo "ERRO: esperado 1 APK dev deste commit, encontrados ${#APKS[@]}: ${APKS[*]:-nenhum}"
+            exit 1
+          fi
+          ARQUIVO=$(basename "${APKS[0]}")
+          # Variantes que nao atualizam o dev (debug, assinatura efemera) trazem sufixo no
+          # nome e nao devem virar a Release.
+          if ! [[ "$ARQUIVO" =~ ^pulseira-verde-dev-([0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+)\.apk$ ]]; then
+            echo "ERRO: nome inesperado '$ARQUIVO' (esperado pulseira-verde-dev-X.Y.Z-dev.N.apk)."
+            exit 1
+          fi
+          VERSION_NAME="${BASH_REMATCH[1]}"
+          TITULO_COMMIT=$(printf '%s' "$MENSAGEM" | head -n1)
+
+          {
+            echo "## Pulseira Verde DEV $VERSION_NAME"
+            echo ""
+            echo "Versão de **desenvolvimento**, substituída a cada merge na \`develop\`. Não é a versão de homologação (essas são as \`v1.0.0-rc.N\`)."
+            echo ""
+            echo "- **Instalar:** baixe \`$ARQUIVO\` abaixo e abra no Android (pacote \`.dev\`, instala ao lado do app de homologação)."
+            echo "- **Backend de dev:** $API_URL_DEV"
+            echo "- **Commit:** \`${SHA:0:7}\` — $TITULO_COMMIT"
+            echo "- **Build:** $RUN_URL"
+          } > notas.md
+
+          # Apaga a Release e a tag anteriores (se houver) e recria no commit novo.
+          gh release delete dev --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
+          gh release create dev "apk/$ARQUIVO" \
+            -R "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --prerelease \
+            --latest=false \
+            --title "Pulseira Verde DEV $VERSION_NAME" \
+            --notes-file notas.md
+
+          echo "📦 [dev](https://github.com/$GITHUB_REPOSITORY/releases/tag/dev) → \`$ARQUIVO\` (\`${SHA:0:7}\`)." >> "$GITHUB_STEP_SUMMARY"
